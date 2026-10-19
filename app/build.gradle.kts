@@ -11,8 +11,8 @@ android {
         applicationId = "dev.syed.tvpilot"
         minSdk = 26
         targetSdk = 37
-        versionCode = 12
-        versionName = "1.0.1"
+        versionCode = 13
+        versionName = "1.0.2"
         // Phones only: keeps the on-device text recogniser's native code small.
         // -PabiSplits builds one APK per ABI (for releases); otherwise one APK with both.
         if (project.findProperty("abiSplits") == null) ndk { abiFilters += setOf("arm64-v8a", "armeabi-v7a") }

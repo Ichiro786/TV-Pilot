@@ -154,7 +154,9 @@ fun FocusHome(
             val micSmall = 76.dp
             val micSize = micBig + (micSmall - micBig) * stage
             val bottomBar = 104.dp
-            val centerY = h * 0.45f
+            // Idle mic sits a little lower than centre, leaving air under the headline.
+            val heroY = h * 0.45f
+            val centerY = h * 0.50f
             val dockY = h - bottomBar / 2
             val micCenter = centerY + (dockY - centerY) * stage
 
@@ -174,7 +176,7 @@ fun FocusHome(
             if (stage < 0.99f) {
                 val a = 1f - stage
                 Column(
-                    Modifier.fillMaxWidth().offset { IntOffset(0, (centerY - micBig / 2 - 150.dp).roundToPx()) }
+                    Modifier.fillMaxWidth().offset { IntOffset(0, (heroY - micBig / 2 - 160.dp).roundToPx()) }
                         .graphicsLayer { alpha = a; translationY = -stage * 120f; scaleX = 1f - stage * 0.08f; scaleY = 1f - stage * 0.08f },
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
@@ -202,7 +204,7 @@ fun FocusHome(
                 val lowerAlpha by animateFloatAsState(if (imeOpen) 0f else 1f, tween(200), label = "lower")
                 Column(
                     Modifier.fillMaxWidth()
-                        .offset { IntOffset(0, (centerY + micBig / 2 + 24.dp).roundToPx()) }
+                        .offset { IntOffset(0, (centerY + micBig / 2 + 32.dp).roundToPx()) }
                         .graphicsLayer { alpha = a * lowerAlpha; translationY = stage * 160f + (1f - lowerAlpha) * 40f },
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
@@ -212,10 +214,16 @@ fun FocusHome(
                         color = cs.onSurface,
                     )
                     Text("or type a command", style = MaterialTheme.typography.bodyLarge, color = cs.onSurfaceVariant)
-                    Spacer(Modifier.height(20.dp))
-                    if (state.connection is Connection.Connected) Suggestions(onSend)
-                    else ConnectHint(state.connection, onConnect, onSettings)
+                    if (state.connection !is Connection.Connected) {
+                        Spacer(Modifier.height(20.dp))
+                        ConnectHint(state.connection, onConnect, onSettings)
+                    }
                 }
+                // Suggestions ride just above the command field.
+                if (state.connection is Connection.Connected) Box(
+                    Modifier.align(Alignment.BottomCenter).padding(bottom = 100.dp)
+                        .graphicsLayer { alpha = a * lowerAlpha; translationY = stage * 120f + (1f - lowerAlpha) * 40f },
+                ) { Suggestions(onSend) }
             }
 
             // Top bar
@@ -596,7 +604,7 @@ private fun Suggestions(onSend: (String) -> Unit) {
     val cs = MaterialTheme.colorScheme
     val ideas = listOf("Play Dhruv Rathee's latest video", "Resume Netflix", "Volume down", "Pause", "Go home")
     LazyRow(
-        contentPadding = PaddingValues(horizontal = 24.dp),
+        contentPadding = PaddingValues(horizontal = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         modifier = Modifier.fillMaxWidth(),
     ) {
