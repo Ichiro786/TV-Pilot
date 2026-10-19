@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="110dp" android:minHeight="110dp"
+    android:targetCellWidth="2" android:targetCellHeight="2"
+    android:minResizeWidth="70dp" android:minResizeHeight="70dp"
+    android:resizeMode="horizontal|vertical"
+    android:widgetCategory="home_screen"
+    android:updatePeriodMillis="0"
+    android:initialLayout="@layout/tvp_widget_mic"
+    android:previewImage="@drawable/tvp_w_idle"
+    android:previewLayout="@layout/tvp_widget_mic"
+    android:description="@string/widget_mic_desc" />

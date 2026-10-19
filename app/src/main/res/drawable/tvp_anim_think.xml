@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<animation-list xmlns:android="http://schemas.android.com/apk/res/android" android:oneshot="false">
+    <item android:drawable="@drawable/tvp_w_think_00" android:duration="80"/>
+    <item android:drawable="@drawable/tvp_w_think_01" android:duration="80"/>
+    <item android:drawable="@drawable/tvp_w_think_02" android:duration="80"/>
+    <item android:drawable="@drawable/tvp_w_think_03" android:duration="80"/>
+    <item android:drawable="@drawable/tvp_w_think_04" android:duration="80"/>
+    <item android:drawable="@drawable/tvp_w_think_05" android:duration="80"/>
+    <item android:drawable="@drawable/tvp_w_think_06" android:duration="80"/>
+    <item android:drawable="@drawable/tvp_w_think_07" android:duration="80"/>
+    <item android:drawable="@drawable/tvp_w_think_08" android:duration="80"/>
+    <item android:drawable="@drawable/tvp_w_think_09" android:duration="80"/>
+    <item android:drawable="@drawable/tvp_w_think_10" android:duration="80"/>
+    <item android:drawable="@drawable/tvp_w_think_11" android:duration="80"/>
+</animation-list>

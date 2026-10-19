@@ -33,7 +33,11 @@ class VisionAgent(
 
     private val byPkg = apps.associateBy { it.packageName }
 
-    private fun systemPrompt() = """
+    private val rules = instructions.trim()
+
+    private fun systemPrompt() = (rules.takeIf { it.isNotEmpty() }?.let {
+        "THE USER'S OWN RULES. These come first and override everything below whenever they apply:\n$it\n\n"
+    }.orEmpty()) + """
         You operate a Google TV for the user, like a person holding the remote and looking at the screen.
         Every turn you get the TASK, a log of what you already did, and a fresh SCREENSHOT of the TV.
         Reply with ONLY one JSON object, no markdown:
@@ -54,6 +58,14 @@ class VisionAgent(
         - Look carefully before acting. Tap the CENTER of the thing you want (a thumbnail, a button, a tab).
         - TV apps follow a focus highlight (outline, glow or enlarged tile). If a tap did not change the screen,
           switch to the D-pad: move focus with UP/DOWN/LEFT/RIGHT until the right item is highlighted, then OK.
+        - FOCUS FIRST: before pressing OK, find the item that has the focus highlight RIGHT NOW and name it in
+          "thought" (e.g. "focus is on 'support the project' card"). If it is not your target, move focus with the
+          D-pad (or tap the target) and look again. Never press OK on an item just because your target is visible.
+        - Links, ads, "support/donate" cards and anything that opens a browser are never what the user wants.
+          If an "Open with" chooser, a browser or a web page appears, it was a mistake: press BACK once and
+          move focus AWAY from that item before pressing OK again.
+        - Each log line ends with what happened after it ("screen did NOT change", "now in app X"). Trust it:
+          an action that changed nothing did nothing, so do something different.
         - Never repeat the same failing action more than twice; try another way.
         - Only say "done" when the screenshot proves it: video playing full-screen, player controls, or the requested screen.
           After opening a video or episode, if a details page shows Play/Resume/Watch, press it first.
@@ -66,9 +78,7 @@ class VisionAgent(
 
         APPS (label = package, [search] = supports the search action):
         ${apps.joinToString("\n        ") { "${it.label} = ${it.packageName}" + if (it.searchUrl != null) " [search]" else "" }}
-    """.trimIndent() + instructions.trim().takeIf { it.isNotEmpty() }?.let {
-        "\n\nUSER'S CUSTOM INSTRUCTIONS (always follow these when they apply; they override the general rules above):\n" + it
-    }.orEmpty()
+    """.trimIndent()
 
     suspend fun run(task: String, onScreen: TvApp?, maxSteps: Int = 22): Result {
         val log = mutableListOf<String>()
@@ -77,20 +87,37 @@ class VisionAgent(
         var lastAction = ""
         var repeats = 0
         val system = systemPrompt()
+        var prevSig: IntArray? = null
+        var prevFront: String? = null
 
         for (step in 1..maxSteps) {
             onStep(if (step == 1) "Looking at the TV…" else "Reading the screen…")
             val shot = tv.screenshot()
             onShot(shot.jpeg)
             val front = runCatching { tv.foregroundPackage() }.getOrNull()
+            // Tell the model what its last action actually did.
+            val sig = signature(shot.jpeg)
+            if (log.isNotEmpty() && prevSig != null) {
+                val outcome = when {
+                    front != null && prevFront != null && front != prevFront ->
+                        if (isChooserOrBrowser(front)) "a popup/browser opened ($front), that was WRONG"
+                        else "now in ${byPkg[front]?.label ?: front}"
+                    sig != null && diff(prevSig, sig) < 0.5 -> "screen did NOT change (check where the focus is)"
+                    else -> "screen changed"
+                }
+                log[log.lastIndex] = log.last() + " → " + outcome
+            }
+            prevSig = sig; prevFront = front
             val user = buildString {
                 appendLine("TASK: $task")
                 appendLine("App in front now: ${front?.let { p -> byPkg[p]?.label?.let { "$it ($p)" } ?: p } ?: onScreen?.label ?: "unknown"}")
                 appendLine("Step $step of $maxSteps.")
                 if (log.isEmpty()) appendLine("Nothing done yet.") else {
                     appendLine("Done so far:")
-                    log.takeLast(10).forEach { appendLine("- $it") }
+                    log.takeLast(12).forEach { appendLine("- $it") }
                 }
+                val app = front?.let { byPkg[it]?.label }
+                if (rules.isNotEmpty()) appendLine("REMEMBER THE USER'S RULES" + (app?.let { " (you're in $it)" } ?: "") + ":\n" + rules)
                 if (repeats >= 2) appendLine("WARNING: you repeated the same action and it isn't working. Do something different.")
                 append("SCREENSHOT attached. Your JSON:")
             }
@@ -100,9 +127,9 @@ class VisionAgent(
             val thought = reply.optString("thought").take(160)
             val say = reply.optString("say").ifBlank { null }
 
-            val sig = action.toString()
-            repeats = if (sig == lastAction) repeats + 1 else 0
-            lastAction = sig
+            val actSig = action.toString()
+            repeats = if (actSig == lastAction) repeats + 1 else 0
+            lastAction = actSig
 
             val nice = thought.substringBefore('.').trim().take(60).replaceFirstChar { it.uppercase() }
             if (nice.isNotBlank() && type !in setOf("done", "fail", "wait")) onStep(nice)
@@ -173,6 +200,20 @@ class VisionAgent(
         }
         return Result("I ran out of steps. Here's where I got to.", chips, false, opened)
     }
+
+    private fun isChooserOrBrowser(pkg: String) = pkg == "android" || listOf("intentresolver", "resolver", "browser", "chrome", "tvbro", "browsehere", "downloader")
+        .any { pkg.contains(it, ignoreCase = true) }
+
+    /** A tiny 64x36 grayscale fingerprint of the screen, to tell whether an action changed anything. */
+    private fun signature(jpeg: ByteArray): IntArray? = runCatching {
+        val o = android.graphics.BitmapFactory.Options().apply { inSampleSize = 8 }
+        val b = android.graphics.BitmapFactory.decodeByteArray(jpeg, 0, jpeg.size, o) ?: return null
+        val s = android.graphics.Bitmap.createScaledBitmap(b, 64, 36, true)
+        IntArray(64 * 36) { i -> val c = s.getPixel(i % 64, i / 64); ((c shr 16 and 255) + (c shr 8 and 255) + (c and 255)) / 3 }
+    }.getOrNull()
+
+    private fun diff(a: IntArray, b: IntArray): Double =
+        if (a.size != b.size) 99.0 else a.indices.sumOf { kotlin.math.abs(a[it] - b[it]) }.toDouble() / a.size
 
     private suspend fun ask(system: String, user: String, jpeg: ByteArray): JSONObject {
         val img = "data:image/jpeg;base64," + Base64.encodeToString(jpeg, Base64.NO_WRAP)

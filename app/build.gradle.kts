@@ -11,10 +11,11 @@ android {
         applicationId = "dev.syed.tvpilot"
         minSdk = 26
         targetSdk = 37
-        versionCode = 10
-        versionName = "0.5.4"
+        versionCode = 12
+        versionName = "1.0.1"
         // Phones only: keeps the on-device text recogniser's native code small.
-        ndk { abiFilters += setOf("arm64-v8a", "armeabi-v7a") }
+        // -PabiSplits builds one APK per ABI (for releases); otherwise one APK with both.
+        if (project.findProperty("abiSplits") == null) ndk { abiFilters += setOf("arm64-v8a", "armeabi-v7a") }
         // Optional defaults baked in at build time, so the app works out of the box.
         val d1Url = (project.findProperty("d1Url") as String?) ?: System.getenv("D1_URL") ?: ""
         val d1Key = (project.findProperty("d1Key") as String?) ?: System.getenv("D1_KEY") ?: ""
@@ -41,6 +42,14 @@ android {
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             // Signed with the debug key so the release APK installs straight away.
             signingConfig = signingConfigs.findByName("stable") ?: signingConfigs.getByName("debug")
+        }
+    }
+    if (project.findProperty("abiSplits") != null) splits {
+        abi {
+            isEnable = true
+            reset()
+            include("arm64-v8a", "armeabi-v7a")
+            isUniversalApk = false
         }
     }
     compileOptions {

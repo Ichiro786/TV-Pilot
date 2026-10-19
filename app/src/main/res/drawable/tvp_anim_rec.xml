@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<animation-list xmlns:android="http://schemas.android.com/apk/res/android" android:oneshot="false">
+    <item android:drawable="@drawable/tvp_w_rec_00" android:duration="55"/>
+    <item android:drawable="@drawable/tvp_w_rec_01" android:duration="55"/>
+    <item android:drawable="@drawable/tvp_w_rec_02" android:duration="55"/>
+    <item android:drawable="@drawable/tvp_w_rec_03" android:duration="55"/>
+    <item android:drawable="@drawable/tvp_w_rec_04" android:duration="55"/>
+    <item android:drawable="@drawable/tvp_w_rec_05" android:duration="55"/>
+    <item android:drawable="@drawable/tvp_w_rec_06" android:duration="55"/>
+    <item android:drawable="@drawable/tvp_w_rec_07" android:duration="55"/>
+    <item android:drawable="@drawable/tvp_w_rec_08" android:duration="55"/>
+    <item android:drawable="@drawable/tvp_w_rec_09" android:duration="55"/>
+    <item android:drawable="@drawable/tvp_w_rec_10" android:duration="55"/>
+    <item android:drawable="@drawable/tvp_w_rec_11" android:duration="55"/>
+    <item android:drawable="@drawable/tvp_w_rec_12" android:duration="55"/>
+    <item android:drawable="@drawable/tvp_w_rec_13" android:duration="55"/>
+    <item android:drawable="@drawable/tvp_w_rec_14" android:duration="55"/>
+    <item android:drawable="@drawable/tvp_w_rec_15" android:duration="55"/>
+</animation-list>

@@ -27,7 +27,8 @@ Say *"play Dhruv Rathee's latest video"*, *"resume my show on Nuvio"* or *"volum
   - **Phone.** Android's built-in speech recogniser.
   - **Parakeet.** Your own server (any OpenAI-style `/v1/audio/transcriptions` endpoint).
 - **Custom instructions.** Rules the agent always follows, per app. For example: *"In Nuvio, after pressing Play, wait for providers, skip 'Support the project', pick PenguPlay."*
-- **Bluetooth remote.** The phone acts as a Bluetooth HID keyboard and media remote, so button presses reach the TV with no ADB lag. Taps, typing and screenshots still go over ADB.
+- **Bluetooth remote.** The phone acts as a Bluetooth HID media remote, so your own button presses reach the TV with no ADB lag. The agent always uses ADB, so the two never clash.
+- **Home-screen widgets.** A frosted 2×2 mic and a 4×2 remote with status and play, volume and home buttons. Tap the mic to start talking.
 - **Backup brain (optional).** A small decision model (e.g. Liquid AI d1) on your own server takes over if the vision API fails or runs out of quota.
 - **Polished UI.** A focus home with a big morphing mic, a smooth mic-to-bar transition, an AMOLED black mode, and a remote and apps sheet.
 - **Works with any app.** YouTube / TizenTube, Netflix, Prime Video, JioHotstar, Crunchyroll, Nuvio, Stremio, Plex and more. Installed TV apps are detected on their own.
@@ -73,6 +74,8 @@ Optional build-time defaults (kept out of the source):
 ./gradlew assembleRelease -Pd1Url=https://your-server -Pd1Key=... -PasrUrl=https://your-asr-server
 # or the env vars D1_URL, D1_KEY, ASR_URL
 ```
+
+Add `-PabiSplits=1` for separate arm64-v8a and armeabi-v7a APKs.
 
 To keep updates installable over older builds, sign with your own fixed keystore: `-PtvpilotKeystore=/path/to/your.keystore`.
 

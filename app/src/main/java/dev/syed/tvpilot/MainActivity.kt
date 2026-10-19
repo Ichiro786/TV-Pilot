@@ -63,12 +63,21 @@ class MainActivity : ComponentActivity() {
         return false
     }
 
+    /** Set when the home-screen widget's mic was tapped; the UI starts listening once it's up. */
+    private val widgetListen = mutableStateOf(0)
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        if (intent.action == dev.syed.tvpilot.widget.TvWidgets.ACTION_LISTEN) widgetListen.value++
+    }
+
     private fun settingsBtOnStart() = vm.settings.value.btRemote
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         ensureLanAccess()
+        if (savedInstanceState == null && intent?.action == dev.syed.tvpilot.widget.TvWidgets.ACTION_LISTEN) widgetListen.value++
         if (settingsBtOnStart()) withBt { vm.btStart() }
         setContent {
             val settings by vm.settings.collectAsStateWithLifecycle()
@@ -95,6 +104,15 @@ class MainActivity : ComponentActivity() {
                     if (settings.speechEngine == dev.syed.tvpilot.data.SpeechEngine.GOOGLE) googleListen()
                     else if (checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) vm.toggleListening()
                     else micPermission.launch(android.Manifest.permission.RECORD_AUDIO)
+                }
+
+                val wl = widgetListen.value
+                androidx.compose.runtime.LaunchedEffect(wl) {
+                    if (wl > 0) {
+                        inSettings = false
+                        kotlinx.coroutines.delay(250)
+                        if (!vm.ui.value.listening) listen()
+                    }
                 }
 
                 BackHandler(enabled = inSettings) { inSettings = false }

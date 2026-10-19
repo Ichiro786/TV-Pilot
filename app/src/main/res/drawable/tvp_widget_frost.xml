@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Frosted glass: translucent white tint with a hairline highlight -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <corners android:radius="@dimen/tvp_widget_radius" />
+            <gradient android:angle="315" android:startColor="#38FFFFFF" android:endColor="#1FFFFFFF" />
+            <stroke android:width="1dp" android:color="#55FFFFFF" />
+        </shape>
+    </item>
+</layer-list>

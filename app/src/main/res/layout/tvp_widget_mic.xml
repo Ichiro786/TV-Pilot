@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/w_root"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:background="@drawable/tvp_widget_frost"
+    android:clipToOutline="true"
+    android:padding="10dp">
+    <ImageView android:id="@+id/w_idle"
+        android:layout_width="match_parent" android:layout_height="match_parent"
+        android:layout_gravity="center" android:scaleType="fitCenter"
+        android:src="@drawable/tvp_w_idle" android:contentDescription="@string/widget_mic_desc" />
+    <ProgressBar android:id="@+id/w_rec"
+        android:layout_width="match_parent" android:layout_height="match_parent"
+        android:layout_gravity="center" android:visibility="gone"
+        android:indeterminateOnly="true" android:indeterminateDrawable="@drawable/tvp_anim_rec" />
+    <ProgressBar android:id="@+id/w_think"
+        android:layout_width="match_parent" android:layout_height="match_parent"
+        android:layout_gravity="center" android:visibility="gone"
+        android:indeterminateOnly="true" android:indeterminateDrawable="@drawable/tvp_anim_think" />
+</FrameLayout>

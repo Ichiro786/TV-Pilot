@@ -1,0 +1,7 @@
+<resources>
+    <dimen name="tvp_widget_radius">28dp</dimen>
+    <string name="widget_mic_name">TV Pilot mic</string>
+    <string name="widget_mic_desc">Tap to talk to your TV</string>
+    <string name="widget_wide_name">TV Pilot remote</string>
+    <string name="widget_wide_desc">Mic, status and quick controls</string>
+</resources>

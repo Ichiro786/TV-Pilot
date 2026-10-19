@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/w_root"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:background="@drawable/tvp_widget_frost"
+    android:clipToOutline="true"
+    android:orientation="horizontal" android:gravity="center_vertical"
+    android:paddingStart="8dp" android:paddingEnd="16dp">
+    <FrameLayout android:id="@+id/w_mic"
+        android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="0.42">
+        <ImageView android:id="@+id/w_idle"
+            android:layout_width="match_parent" android:layout_height="match_parent"
+            android:scaleType="fitCenter" android:src="@drawable/tvp_w_idle"
+            android:contentDescription="@string/widget_mic_desc" />
+        <ProgressBar android:id="@+id/w_rec"
+            android:layout_width="match_parent" android:layout_height="match_parent" android:visibility="gone"
+            android:indeterminateOnly="true" android:indeterminateDrawable="@drawable/tvp_anim_rec" />
+        <ProgressBar android:id="@+id/w_think"
+            android:layout_width="match_parent" android:layout_height="match_parent" android:visibility="gone"
+            android:indeterminateOnly="true" android:indeterminateDrawable="@drawable/tvp_anim_think" />
+    </FrameLayout>
+    <LinearLayout
+        android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="0.58"
+        android:orientation="vertical">
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="@string/app_name" android:textColor="#D9FFFFFF" android:textSize="13sp"
+            android:fontFamily="sans-serif-medium" />
+        <TextView android:id="@+id/w_title"
+            android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="Tap to talk" android:textColor="#FFFFFFFF" android:textSize="22sp"
+            android:fontFamily="sans-serif-medium" android:maxLines="1" android:ellipsize="end" />
+        <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:orientation="horizontal" android:gravity="center_vertical" android:layout_marginTop="2dp">
+            <ImageView android:id="@+id/w_dot" android:layout_width="8dp" android:layout_height="8dp"
+                android:src="@drawable/tvp_dot" android:layout_marginEnd="6dp" />
+            <TextView android:id="@+id/w_status"
+                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="Ready" android:textColor="#EBEBF5" android:textSize="13sp"
+                android:maxLines="1" android:ellipsize="end" />
+        </LinearLayout>
+        <LinearLayout android:layout_width="match_parent" android:layout_height="40dp"
+            android:orientation="horizontal" android:layout_marginTop="12dp">
+            <ImageButton android:id="@+id/w_k_play" android:layout_width="0dp" android:layout_height="match_parent"
+                android:layout_weight="1" android:layout_marginEnd="6dp" android:background="@drawable/tvp_chip"
+                android:src="@drawable/tvp_ic_playpause" android:contentDescription="Play or pause" />
+            <ImageButton android:id="@+id/w_k_vdown" android:layout_width="0dp" android:layout_height="match_parent"
+                android:layout_weight="1" android:layout_marginEnd="6dp" android:background="@drawable/tvp_chip"
+                android:src="@drawable/tvp_ic_voldown" android:contentDescription="Volume down" />
+            <ImageButton android:id="@+id/w_k_vup" android:layout_width="0dp" android:layout_height="match_parent"
+                android:layout_weight="1" android:layout_marginEnd="6dp" android:background="@drawable/tvp_chip"
+                android:src="@drawable/tvp_ic_volup" android:contentDescription="Volume up" />
+            <ImageButton android:id="@+id/w_k_home" android:layout_width="0dp" android:layout_height="match_parent"
+                android:layout_weight="1" android:background="@drawable/tvp_chip"
+                android:src="@drawable/tvp_ic_home" android:contentDescription="Home" />
+        </LinearLayout>
+    </LinearLayout>
+</LinearLayout>

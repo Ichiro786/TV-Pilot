@@ -195,8 +195,12 @@ class TvController(private val context: Context) {
     /** Faster path for remote keys (Bluetooth). Returns true when it handled the press. */
     @Volatile var fastKeys: (suspend (TvKey, Int) -> Boolean)? = null
 
-    suspend fun key(k: TvKey, times: Int = 1) {
-        if (runCatching { fastKeys?.invoke(k, times) }.getOrNull() == true) return
+    /**
+     * Presses a remote button. [viaBluetooth] is only for the user's own taps (remote sheet, widget):
+     * the agent and voice commands always go over ADB so the two never fight over the TV.
+     */
+    suspend fun key(k: TvKey, times: Int = 1, viaBluetooth: Boolean = false) {
+        if (viaBluetooth && runCatching { fastKeys?.invoke(k, times) }.getOrNull() == true) return
         repeat(times.coerceIn(1, 25)) { shell("input keyevent ${k.code}") }
     }
 

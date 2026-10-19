@@ -84,8 +84,8 @@ object BtRemote {
     private fun register() {
         val h = hid ?: return
         val sdp = BluetoothHidDeviceAppSdpSettings(
-            "TV Pilot Remote", "TV Pilot voice remote", "TV Pilot",
-            BluetoothHidDevice.SUBCLASS1_COMBO, DESCRIPTOR,
+            "TV Pilot Remote", "Bluetooth HID Device", "TV Pilot",
+            BluetoothHidDevice.SUBCLASS2_UNCATEGORIZED, DESCRIPTOR,
         )
         val ok = h.registerApp(sdp, null, null, executor, callback)
         if (!ok) set(State.FAILED, "Another app is using the Bluetooth remote slot")
@@ -115,7 +115,7 @@ object BtRemote {
         }
 
         override fun onGetReport(device: BluetoothDevice, type: Byte, id: Byte, bufferSize: Int) {
-            hid?.replyReport(device, type, id, ByteArray(if (id.toInt() == ID_CONSUMER) 2 else 8))
+            hid?.replyReport(device, type, id, ByteArray(2))
         }
 
         override fun onSetReport(device: BluetoothDevice, type: Byte, id: Byte, data: ByteArray) {
@@ -185,15 +185,15 @@ object BtRemote {
         val usage = map[key] ?: return@withContext false
         sendLock.withLock {
             repeat(times.coerceIn(1, 25)) { n ->
-                val ok = if (usage.consumer) {
-                    h.sendReport(dev, ID_CONSUMER, byteArrayOf((usage.code and 0xFF).toByte(), (usage.code shr 8).toByte())) &&
-                        h.sendReport(dev, ID_CONSUMER, byteArrayOf(0, 0))
-                } else {
-                    h.sendReport(dev, ID_KEYBOARD, byteArrayOf(0, 0, usage.code.toByte(), 0, 0, 0, 0, 0)) &&
-                        h.sendReport(dev, ID_KEYBOARD, ByteArray(8))
-                }
+                val bytes = if (usage.consumer) byteArrayOf((usage.code and 0xFF).toByte(), (usage.code shr 8).toByte())
+                    else byteArrayOf(0, usage.code.toByte())
+                val id = if (usage.consumer) ID_CONSUMER else ID_KEYBOARD
+                // Hold the button briefly like a real remote; an instant release gets dropped by some TVs.
+                val ok = h.sendReport(dev, id, bytes)
+                delay(HOLD_MS)
+                h.sendReport(dev, id, ByteArray(2))
                 if (!ok) return@withContext n > 0
-                if (n < times - 1) delay(45)
+                if (n < times - 1) delay(GAP_MS)
             }
         }
         true
@@ -202,10 +202,11 @@ object BtRemote {
     private data class Usage(val code: Int, val consumer: Boolean)
 
     private val map = mapOf(
-        TvKey.UP to Usage(0x52, false),
-        TvKey.DOWN to Usage(0x51, false),
-        TvKey.LEFT to Usage(0x50, false),
-        TvKey.RIGHT to Usage(0x4F, false),
+        // D-pad on the consumer "Menu" usages, same as OK, which Google TV maps to DPAD_* (as BT Remote does).
+        TvKey.UP to Usage(0x42, true),
+        TvKey.DOWN to Usage(0x43, true),
+        TvKey.LEFT to Usage(0x44, true),
+        TvKey.RIGHT to Usage(0x45, true),
         TvKey.OK to Usage(0x41, true),          // Menu Pick → DPAD_CENTER
         TvKey.BACK to Usage(0x224, true),       // AC Back
         TvKey.HOME to Usage(0x223, true),       // AC Home
@@ -217,23 +218,25 @@ object BtRemote {
         TvKey.VOLUME_UP to Usage(0xE9, true),
         TvKey.VOLUME_DOWN to Usage(0xEA, true),
         TvKey.MUTE to Usage(0xE2, true),
-        TvKey.SLEEP to Usage(0x32, true),
+        TvKey.SLEEP to Usage(0x30, true),       // Power
         // WAKE stays on ADB.
     )
 
     private const val ID_KEYBOARD = 1
     private const val ID_CONSUMER = 2
 
+    private const val HOLD_MS = 40L
+    private const val GAP_MS = 60L
+
+    // Same layout as Atharok's BT Remote, which works on the user's TCL: consumer control (report 2)
+    // first, then a 2-byte keyboard (report 1: modifiers + one key).
     private val DESCRIPTOR = intArrayOf(
-        // Keyboard, report 1
+        0x05, 0x0C, 0x09, 0x01, 0xA1, 0x01, 0x85, ID_CONSUMER,
+        0x19, 0x00, 0x2A, 0xFF, 0x03, 0x75, 0x10, 0x95, 0x01, 0x15, 0x00, 0x26, 0xFF, 0x03, 0x81, 0x00,
+        0xC0,
         0x05, 0x01, 0x09, 0x06, 0xA1, 0x01, 0x85, ID_KEYBOARD,
         0x05, 0x07, 0x19, 0xE0, 0x29, 0xE7, 0x15, 0x00, 0x25, 0x01, 0x75, 0x01, 0x95, 0x08, 0x81, 0x02,
-        0x95, 0x01, 0x75, 0x08, 0x81, 0x01,
-        0x95, 0x06, 0x75, 0x08, 0x15, 0x00, 0x25, 0x65, 0x05, 0x07, 0x19, 0x00, 0x29, 0x65, 0x81, 0x00,
-        0xC0,
-        // Consumer control, report 2
-        0x05, 0x0C, 0x09, 0x01, 0xA1, 0x01, 0x85, ID_CONSUMER,
-        0x15, 0x00, 0x26, 0xFF, 0x03, 0x19, 0x00, 0x2A, 0xFF, 0x03, 0x75, 0x10, 0x95, 0x01, 0x81, 0x00,
+        0x75, 0x08, 0x95, 0x01, 0x15, 0x00, 0x26, 0xFF, 0x00, 0x05, 0x07, 0x19, 0x00, 0x29, 0xFF, 0x81, 0x00,
         0xC0,
     ).map { it.toByte() }.toByteArray()
 }

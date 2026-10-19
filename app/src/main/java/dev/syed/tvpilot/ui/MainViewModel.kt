@@ -103,6 +103,23 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     init {
+        // Keep the home-screen widgets in step with the mic and the TV.
+        viewModelScope.launch {
+            ui.collect { st ->
+                val mode = when {
+                    st.listening -> dev.syed.tvpilot.widget.WidgetMode.LISTENING
+                    st.thinking -> dev.syed.tvpilot.widget.WidgetMode.THINKING
+                    else -> dev.syed.tvpilot.widget.WidgetMode.IDLE
+                }
+                val status = when (val c = st.connection) {
+                    is Connection.Connected -> st.onScreen?.let { "${it.label} on screen" } ?: "Connected to TV"
+                    Connection.Connecting -> "Connecting…"
+                    is Connection.Failed -> "TV not connected"
+                    Connection.Disconnected -> "Ready"
+                }
+                runCatching { dev.syed.tvpilot.widget.TvWidgets.push(getApplication(), mode, if (st.thinking) (st.status ?: "Working on it") else status) }
+            }
+        }
         tts = TextToSpeech(app) { status ->
             if (status == TextToSpeech.SUCCESS) tts?.language = Locale.getDefault()
         }
@@ -179,7 +196,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun press(key: TvKey) = viewModelScope.launch {
-        runCatching { tv.key(key) }.onFailure { say("Lost the TV: ${it.message}", error = true) }
+        runCatching { tv.key(key, viaBluetooth = true) }.onFailure { say("Lost the TV: ${it.message}", error = true) }
     }
 
     fun open(app: TvApp) = viewModelScope.launch {
