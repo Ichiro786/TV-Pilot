@@ -1,0 +1,19 @@
+name: Attach release APKs
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag
+        required: true
+permissions:
+  contents: write
+jobs:
+  attach:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: release-assets
+      - run: gh release upload "${{ inputs.tag }}" *.apk --clobber
+        env:
+          GH_TOKEN: ${{ github.token }}
