@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="service_desc">Lets the remote\'s mic button open TV Pilot instead of Google Assistant. Reads the remote\'s keys, and spots Google\'s voice popup so it can close it.</string>
+</resources>
