@@ -52,10 +52,19 @@ final class Prefs {
     static void visionModel(String v) { p.edit().putString("visionModel", v).apply(); }
     static String rules() { return p.getString("rules", ""); }
     static void rules(String v) { p.edit().putString("rules", v).apply(); }
+    /** Streaming profile to pick on "Who's watching?" (blank: the one that's already focused). */
+    static String profile() { return p.getString("profile", ""); }
+    static void profile(String v) { p.edit().putString("profile", v == null ? "" : v.trim()).apply(); }
+    /** The last accuracy test, for Diagnostics. */
+    static String lastEval() { return p == null ? "" : p.getString("lastEval", ""); }
+    static void lastEval(String v) { if (p != null) p.edit().putString("lastEval", v).apply(); }
+    static boolean learnLog() { return p.getBoolean("learnLog", true); }
+    static void learnLog(boolean v) { p.edit().putBoolean("learnLog", v).apply(); Learn.on = v; }
     static boolean autoPlay() { return p.getBoolean("autoPlay", false); }
     static void autoPlay(boolean v) { p.edit().putBoolean("autoPlay", v).apply(); }
 
-    static boolean speak() { return p.getBoolean("speak", true) && hasVm(); }   // replies are spoken by Phonon on your server
+    /** Replies are spoken: by Phonon on your server, or the TV's own voice when there's no server or it's asleep. */
+    static boolean speak() { return p.getBoolean("speak", true); }
     static boolean speakSetting() { return p.getBoolean("speak", true); }
     static void speak(boolean v) { p.edit().putBoolean("speak", v).apply(); }
     static String voice() { return p.getString("voice", "Maeve"); }
@@ -83,6 +92,26 @@ final class Prefs {
         p.edit().putStringSet("assistants", s).apply();
     }
     static void clearAssistants() { p.edit().remove("assistants").apply(); }
+
+    /** Which brain answers: "classic" (d1 + Gemini Flash Lite + your ASR / Phonon) or "live" (Gemini Live, speech to speech). */
+    static String engine() { return p.getString("engine", "classic"); }
+    static void engine(String v) { p.edit().putString("engine", "live".equals(v) ? "live" : "classic").apply(); }
+    static boolean live() { return "live".equals(engine()); }
+    static String liveModel() { return p.getString("liveModel", "gemini-3.8-live"); }
+    static void liveModel(String v) { p.edit().putString("liveModel", v == null || v.trim().isEmpty() ? "gemini-3.8-live" : v.trim()).apply(); }
+    /** Gemini Live's own prebuilt voice (separate from the Phonon voice used by Classic). */
+    static String liveVoice() { return p.getString("liveVoice", "Puck"); }
+    static void liveVoice(String v) { p.edit().putString("liveVoice", v).apply(); }
+
+    /** How the last Gemini Live session ended (close code and reason, or the server's error), for Diagnostics. */
+    static String lastLive() { return p == null ? "" : p.getString("lastLive", ""); }
+    static void lastLive(String v) {
+        if (p != null) p.edit().putString("lastLive", new java.text.SimpleDateFormat("MM-dd HH:mm", java.util.Locale.US).format(new java.util.Date()) + "  " + v).apply();
+    }
+
+    /** The last crash (shown in Diagnostics so it's never silent). */
+    static String lastCrash() { return p == null ? "" : p.getString("lastCrash", ""); }
+    static void lastCrash(String v) { if (p != null) p.edit().putString("lastCrash", v).commit(); }
 
     /** Diagnostic: record through a see-through activity instead of the overlay (the app is then "in front"). */
     static boolean viaActivity() { return p.getBoolean("viaActivity2", true); }

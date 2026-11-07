@@ -87,8 +87,12 @@ final class Setup {
      */
     static String makeAssistant(Context c, boolean googleOff, Adb.Approval approval) {
         try (Adb adb = Adb.connect(c, 40_000, approval)) {
+            // Also: no assist screenshot/structure for TV Pilot (it reads the screen itself) and no "assistant is reading
+            // the screen" disclosure glow. Secure settings only; Google's apps are never touched by this.
             String out = adb.shell("cmd role add-role-holder --user 0 android.app.role.ASSISTANT " + PKG + " 2>&1; "
                     + "settings put secure assistant " + ASSIST_COMPONENT + "; "
+                    + "settings put secure assist_structure_enabled 0; settings put secure assist_screenshot_enabled 0; "
+                    + "settings put secure assist_disclosure_enabled 0; "
                     + "settings get secure assistant");
             Log.w("assistant setup: " + out.trim().replace('\n', ' '));
             if (googleOff) Log.w("Google voice: " + adb.shell("pm disable-user --user 0 " + KATNISS + " 2>&1").trim());

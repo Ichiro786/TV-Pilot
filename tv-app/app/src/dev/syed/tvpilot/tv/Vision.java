@@ -5,10 +5,6 @@ import android.util.Base64;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import java.io.OutputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -85,7 +81,7 @@ final class Vision {
         long started = System.currentTimeMillis();
         for (int step = 1; step <= maxSteps; step++) {
             if (Thread.currentThread().isInterrupted()) throw new InterruptedException();
-            if (System.currentTimeMillis() - started > 150_000) return new Result("That took too long, so I stopped. Try saying it more simply.", false);
+            if (System.currentTimeMillis() - started > 85_000) return new Result("That was taking too long, so I stopped. Try saying it more simply.", false);
             steps.step("Looking at the screen (step " + step + ")");
             Tv.Shot shot = tv.screenshot(1024);
             Log.w("vision step " + step + ": screenshot " + shot.jpeg.length / 1024 + " KB");
@@ -229,7 +225,7 @@ final class Vision {
         String img = "data:image/jpeg;base64," + Base64.encodeToString(jpeg, Base64.NO_WRAP);
         String[] efforts = {workingEffort != null ? workingEffort : "minimal", "low", null};
         JSONObject res = null;
-        String lastErr = "vision model unreachable";
+        String lastErr = "Gemini isn't reachable";
         for (String effort : efforts) {
             JSONObject body = new JSONObject().put("model", model).put("temperature", 0).put("max_tokens", 1500)
                     .put("response_format", new JSONObject().put("type", "json_object"))
@@ -240,29 +236,24 @@ final class Vision {
                                     .put(new JSONObject().put("type", "image_url").put("image_url", new JSONObject().put("url", img))))));
             if (effort != null) body.put("reasoning_effort", effort);
             else body.remove("response_format");   // last try: the plainest request
-            HttpURLConnection c = (HttpURLConnection) new URL(URL).openConnection();
-            c.setConnectTimeout(10000);
-            c.setReadTimeout(60000);
-            c.setRequestMethod("POST");
-            c.setDoOutput(true);
-            c.setRequestProperty("Content-Type", "application/json");
-            c.setRequestProperty("Authorization", "Bearer " + key);
+            if (Thread.currentThread().isInterrupted()) throw new InterruptedException();
             try {
-                try (OutputStream o = c.getOutputStream()) { o.write(body.toString().getBytes(StandardCharsets.UTF_8)); }
-                int code = c.getResponseCode();
-                String text = Server.read(code >= 400 ? c.getErrorStream() : c.getInputStream());
-                if (code == 200) { res = new JSONObject(text); workingEffort = effort; break; }
-                lastErr = "Gemini said " + code + ": " + (text.length() > 120 ? text.substring(0, 120) : text);
-                Log.w("vision: " + lastErr);
-                if (code != 400) break;
+                Net.Response r = Net.postJson(URL, body.toString(), new String[][] {{"Authorization", "Bearer " + key}}, 6000, 35_000, "Gemini");
+                if (r.code == 200) { res = new JSONObject(r.body); workingEffort = effort; break; }
+                Net.Fail f = Net.http(r.code, r.body, "Gemini");
+                lastErr = f.user;
+                Log.w("vision: " + f.getMessage());
+                if (r.code != 400 || f.user.contains("rejected the key")) break;
             } catch (java.io.IOException e) {
-                lastErr = e.getMessage();
+                lastErr = Net.explain(e);
                 break;
             }
         }
         if (res == null) throw new ApiException(lastErr);
         JSONArray ch = res.optJSONArray("choices");
-        String text = ch == null ? "" : ch.optJSONObject(0).optJSONObject("message").optString("content");
+        JSONObject first = ch == null ? null : ch.optJSONObject(0);
+        JSONObject msg = first == null ? null : first.optJSONObject("message");
+        String text = msg == null ? "" : msg.optString("content", "");
         String raw = text.length() > 160 ? text.substring(0, 160) : text;
         int s = text.indexOf('{'), e = text.lastIndexOf('}');
         if (s < 0 || e <= s) return new JSONObject().put("raw", raw.isEmpty() ? "(empty)" : raw);

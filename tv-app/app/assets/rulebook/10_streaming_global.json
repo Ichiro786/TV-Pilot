@@ -1,0 +1,596 @@
+{
+ "rulebook_version": "1.2.0-r1 (2026-10-22)",
+ "apps": [
+  {
+   "id": "youtube",
+   "label": "YouTube",
+   "packages": [
+    "com.google.android.youtube.tv",
+    "com.google.android.youtube.tvunplugged"
+   ],
+   "aliases": [
+    "youtube",
+    "yt"
+   ],
+   "verified": false,
+   "tree": "none",
+   "justwatch": [
+    "youtube",
+    "youtubepremium"
+   ],
+   "search_link": {
+    "url": "https://www.youtube.com/results?search_query=%s",
+    "verified": true,
+    "lands_on": "results",
+    "note": "Used since 1.0; Syed says YouTube works well this way."
+   },
+   "watch_link": {
+    "url": "https://www.youtube.com/watch?v=%s"
+   },
+   "notes": [
+    "Cobalt (web) renderer: the accessibility tree is almost empty, so screens are read from the screenshot.",
+    "Selecting a video thumbnail plays it directly (no detail page).",
+    "'Latest video of X': search X, open the CHANNEL result (round avatar), go to the Videos tab, play the first tile."
+   ],
+   "search": {
+    "entry": [
+     "link",
+     "rail:Search"
+    ],
+    "typing": "input_text",
+    "results": "rows below the box"
+   },
+   "buttons": {
+    "play": [
+     "Play"
+    ],
+    "skip": [
+     "Skip",
+     "Skip ad",
+     "Skip ads"
+    ]
+   },
+   "screens": {
+    "home": {
+     "looks": "Dark UI, left rail of icons (profile, Search magnifier, Home, Shorts, Subscriptions, Library), rows of 16:9 video thumbnails with titles under them.",
+     "focus": "Rail is on the far left; RIGHT goes into the rows. Topic chips row at the top of Home.",
+     "signature": {
+      "text_any": []
+     },
+     "ascii": "+--+-------------------------------------------+\n|Me| [All][Music][Gaming][News] chips           |\n|Q | [thumb ][thumb ][thumb ][thumb ] ->        |\n|H | title   title   title   title              |\n|Sh| [thumb ][thumb ][thumb ][thumb ] ->        |\n|Su|                                            |\n+--+-------------------------------------------+"
+    },
+    "search": {
+     "looks": "Text box at the top, an on-screen letter keyboard on the left/bottom, suggestions list, result thumbnails on the right/below.",
+     "focus": "Typing with `input text` works when the search box has focus. After results load, DOWN/RIGHT reaches the result rows; the first result row is videos/channels mixed."
+    },
+    "detail": {
+     "looks": "YouTube has no title page for videos: selecting a thumbnail starts playback. Channel pages have tabs: Home, Videos, Shorts, Live, Playlists.",
+     "focus": "On a channel page, the tab row is near the top; RIGHT to 'Videos', DOWN into the grid, newest first."
+    },
+    "player": {
+     "looks": "Full-screen video; overlay with title, seek bar, controls, and 'Skip ad' at the bottom right during ads.",
+     "focus": "During ads, 'Skip' takes focus after ~5 s; OK presses it. BACK exits the player."
+    }
+   },
+   "sources": [
+    "https://discuss.appium.io/t/uiautomatorviewer-not-showing-entire-ui-tree-for-app-on-androidtv/30828",
+    "https://issuetracker.google.com/issues/359245752",
+    "https://www.home-assistant.io/integrations/androidtv_remote/"
+   ]
+  },
+  {
+   "id": "tizentube",
+   "label": "TizenTube",
+   "packages": [
+    "io.gh.reisxd.tizentube.cobalt"
+   ],
+   "aliases": [
+    "tizentube",
+    "youtube",
+    "yt"
+   ],
+   "verified": false,
+   "tree": "none",
+   "component": "io.gh.reisxd.tizentube.cobalt/dev.cobalt.app.MainActivity",
+   "search_link": {
+    "url": "https://www.youtube.com/results?search_query=%s",
+    "verified": true,
+    "lands_on": "results"
+   },
+   "notes": [
+    "Same YouTube TV interface as YouTube (Cobalt) with ad blocking and SponsorBlock: read it from the screenshot."
+   ],
+   "search": {
+    "entry": [
+     "link"
+    ],
+    "typing": "input_text"
+   },
+   "screens": {
+    "home": {
+     "looks": "Dark UI, left rail of icons (profile, Search magnifier, Home, Shorts, Subscriptions, Library), rows of 16:9 video thumbnails with titles under them.",
+     "focus": "Rail is on the far left; RIGHT goes into the rows. Topic chips row at the top of Home.",
+     "signature": {
+      "text_any": []
+     },
+     "ascii": "+--+-------------------------------------------+\n|Me| [All][Music][Gaming][News] chips           |\n|Q | [thumb ][thumb ][thumb ][thumb ] ->        |\n|H | title   title   title   title              |\n|Sh| [thumb ][thumb ][thumb ][thumb ] ->        |\n|Su|                                            |\n+--+-------------------------------------------+"
+    },
+    "search": {
+     "looks": "Text box at the top, an on-screen letter keyboard on the left/bottom, suggestions list, result thumbnails on the right/below.",
+     "focus": "Typing with `input text` works when the search box has focus. After results load, DOWN/RIGHT reaches the result rows; the first result row is videos/channels mixed."
+    },
+    "detail": {
+     "looks": "YouTube has no title page for videos: selecting a thumbnail starts playback. Channel pages have tabs: Home, Videos, Shorts, Live, Playlists.",
+     "focus": "On a channel page, the tab row is near the top; RIGHT to 'Videos', DOWN into the grid, newest first."
+    },
+    "player": {
+     "looks": "Full-screen video; overlay with title, seek bar, controls, and 'Skip ad' at the bottom right during ads.",
+     "focus": "During ads, 'Skip' takes focus after ~5 s; OK presses it. BACK exits the player."
+    }
+   }
+  },
+  {
+   "id": "ytmusic",
+   "label": "YouTube Music",
+   "packages": [
+    "com.google.android.youtube.tvmusic"
+   ],
+   "aliases": [
+    "youtube music",
+    "yt music"
+   ],
+   "verified": false,
+   "tree": "none",
+   "search_link": {
+    "url": "https://music.youtube.com/search?q=%s",
+    "verified": false,
+    "lands_on": "results"
+   },
+   "notes": [
+    "Cobalt UI like YouTube. Songs/albums/artists rows; OK on a song plays it."
+   ]
+  },
+  {
+   "id": "netflix",
+   "label": "Netflix",
+   "packages": [
+    "com.netflix.ninja"
+   ],
+   "aliases": [
+    "netflix"
+   ],
+   "verified": false,
+   "tree": "none",
+   "justwatch": [
+    "netflix",
+    "netflixbasicwithads",
+    "netflixkids"
+   ],
+   "title_link": {
+    "from": "justwatch",
+    "https": true,
+    "component": "com.netflix.ninja/.MainActivity",
+    "category": "android.intent.category.LEANBACK_LAUNCHER",
+    "flags": "0x10808000",
+    "extras": "--es source 30",
+    "force_stop": true,
+    "lands_on": "detail",
+    "note": "/title/<id> opens the title page; /watch/<id> starts playing. Netflix ignores links while running, so it's force-stopped first. Without source=30 it only opens/resumes."
+   },
+   "search_link": {
+    "url": "https://www.netflix.com/search?q=%s",
+    "verified": false,
+    "lands_on": "search"
+   },
+   "notes": [
+    "Custom renderer (no Android views): the accessibility tree is empty, read the screen from the screenshot and move with the D-pad.",
+    "Profile picker 'Who's watching?' may appear after launch; the last used profile is focused, OK picks it. Sometimes it's skipped.",
+    "Left rail: Profile, Search (magnifier), Home, Shows, Movies, Games, New & Popular, My List. It expands when focused.",
+    "Title page: Play/Resume is focused first; 'Episodes & more' / season selector below. Episodes list: seasons on the left, episodes on the right."
+   ],
+   "search": {
+    "entry": [
+     "rail:Search"
+    ],
+    "keyboard": "grid on the left (a-z, 0-9, space, delete)",
+    "typing": "input_text",
+    "results": "grid to the RIGHT of the keyboard"
+   },
+   "buttons": {
+    "play": [
+     "Play",
+     "Resume",
+     "Play Episode",
+     "Continue Watching"
+    ],
+    "episodes": [
+     "Episodes",
+     "Episodes & more",
+     "Seasons"
+    ],
+    "skip": [
+     "Skip Intro",
+     "Skip Recap",
+     "Next Episode"
+    ],
+    "profile_default": "focused"
+   },
+   "dialogs": [
+    {
+     "when": [
+      "are you still watching"
+     ],
+     "press": [
+      "Continue Watching"
+     ]
+    }
+   ],
+   "screens": {
+    "home": {
+     "looks": "Black UI, red accents. Billboard of one title at the top, rows like 'Continue Watching for <name>', 'My List', 'Trending Now'.",
+     "focus": "Focus on the billboard Play first; DOWN into rows. LEFT from the first tile opens the rail.",
+     "ascii": "+--+------------------------------------------+\n|o | BILLBOARD  [> Play] [More info]           |\n|Q |------------------------------------------|\n|H | Continue Watching: [t][t][t][t] ->         |\n|S | My List:           [t][t][t][t] ->         |\n|M | Trending Now:      [t][t][t][t] ->         |\n+--+------------------------------------------+"
+    },
+    "search": {
+     "looks": "Keyboard grid on the left with the typed text above it; result posters on the right.",
+     "focus": "Type with `input text`; then RIGHT moves from the keyboard into the results grid (first result top-left)."
+    },
+    "detail": {
+     "looks": "Title logo, year, maturity, seasons count, synopsis; buttons Play/Resume, Episodes & more, My List, Rate. Backdrop on the right.",
+     "focus": "Play/Resume focused first. DOWN/RIGHT reaches Episodes & more."
+    },
+    "episodes": {
+     "looks": "Seasons listed on the left ('Season 1', 'Season 2'), episodes with thumbnails on the right, numbered.",
+     "focus": "UP/DOWN in the season list, RIGHT into episodes, UP/DOWN through episodes, OK plays."
+    },
+    "profile": {
+     "looks": "'Who's watching?' with square avatars and names.",
+     "focus": "The last used profile is focused; OK."
+    },
+    "player": {
+     "looks": "Full-screen; 'Skip Intro' button bottom right during intros; 'Next Episode' near the end.",
+     "focus": "Skip buttons are focused when shown."
+    }
+   },
+   "ask_user_when": [
+    "a specific profile is wanted and it isn't the focused one"
+   ],
+   "sources": [
+    "https://stackoverflow.com/questions/35556634/movie-deeplink-for-netflix-android-tv-app-com-netflix-ninja",
+    "https://github.com/Hustawek/remote-control-tv",
+    "https://ataulm.com/2018/08/18/accessibility-service.html",
+    "https://www.home-assistant.io/integrations/androidtv_remote/"
+   ]
+  },
+  {
+   "id": "prime",
+   "label": "Prime Video",
+   "packages": [
+    "com.amazon.amazonvideo.livingroom"
+   ],
+   "aliases": [
+    "prime video",
+    "prime",
+    "amazon prime",
+    "amazon"
+   ],
+   "verified": false,
+   "tree": "none",
+   "justwatch": [
+    "amazonprimevideo",
+    "amazonprimevideowithads",
+    "amazonminitv",
+    "amazonmxplayer",
+    "amazoncrunchyroll",
+    "amazonmanoramamax"
+   ],
+   "title_link": {
+    "from": "justwatch",
+    "package": "com.amazon.amazonvideo.livingroom",
+    "lands_on": "detail",
+    "note": "Links are https://app.primevideo.com/detail?gti=... (amazon.com links don't open the app)."
+   },
+   "notes": [
+    "Custom renderer: read from the screenshot.",
+    "Top navigation bar (not a rail): Search magnifier, Home, Movies, TV shows, Live TV, Subscriptions, My Stuff; DOWN from it into rows.",
+    "Title page: 'Resume'/'Watch now'/'Play' first; 'Episodes' and season dropdown below. Rent/Buy buttons mean it is not included - don't press them.",
+    "'Watch with ads'/'Watch ad-free' choice may appear; pick the plain watch button, never a purchase."
+   ],
+   "search": {
+    "entry": [
+     "top:Search"
+    ],
+    "keyboard": "grid at the top/left",
+    "typing": "input_text",
+    "results": "rows below"
+   },
+   "buttons": {
+    "play": [
+     "Resume",
+     "Watch now",
+     "Play",
+     "Continue watching",
+     "Watch with Prime",
+     "Play S",
+     "Watch"
+    ],
+    "episodes": [
+     "Episodes",
+     "Seasons"
+    ],
+    "never": [
+     "Rent",
+     "Buy",
+     "Subscribe",
+     "Start your free trial",
+     "Join Prime"
+    ],
+    "profile_default": "focused"
+   },
+   "screens": {
+    "home": {
+     "looks": "Dark navy UI; top menu bar; hero carousel; rows with blue 'Prime' badges.",
+     "focus": "UP from the first row reaches the top menu; LEFT/RIGHT along it.",
+     "ascii": "+--------------------------------------------+\n| (Q) Home  Movies  TV shows  Live  My Stuff |\n| HERO carousel                              |\n| Continue watching: [t][t][t][t] ->          |\n| Top movies:        [t][t][t][t] ->          |\n+--------------------------------------------+"
+    },
+    "detail": {
+     "looks": "Title, IMDb rating, year, buttons row (Resume / Play / Trailer / Watchlist), Episodes tab and 'Season N' dropdown.",
+     "focus": "Primary button first; DOWN to Episodes; the season dropdown opens a list (UP/DOWN, OK)."
+    },
+    "profile": {
+     "looks": "'Who's watching?' circles.",
+     "focus": "Last profile focused; OK."
+    }
+   },
+   "sources": [
+    "https://github.com/Hustawek/remote-control-tv",
+    "https://stackoverflow.com/questions/74414027",
+    "https://community.home-assistant.io/t/android-tv-remote-app-links-deep-linking-guide/567921"
+   ]
+  },
+  {
+   "id": "crunchyroll",
+   "label": "Crunchyroll",
+   "packages": [
+    "com.crunchyroll.crunchyroid"
+   ],
+   "aliases": [
+    "crunchyroll",
+    "crunchy"
+   ],
+   "verified": false,
+   "tree": "partial",
+   "justwatch": [
+    "crunchyroll"
+   ],
+   "title_link": {
+    "from": "justwatch",
+    "package": "com.crunchyroll.crunchyroid",
+    "lands_on": "detail"
+   },
+   "search_link": {
+    "url": "https://www.crunchyroll.com/search?q=%s",
+    "verified": false,
+    "lands_on": "results"
+   },
+   "notes": [
+    "Left rail (Search, Home, My Lists, Browse, Simulcast). Series page: 'Start Watching'/'Continue S1 E3', then season dropdown and episode list.",
+    "Sub/Dub variants appear as separate seasons ('Season 1 (English Dub)')."
+   ],
+   "buttons": {
+    "play": [
+     "Start Watching",
+     "Continue",
+     "Resume",
+     "Play",
+     "Watch"
+    ],
+    "episodes": [
+     "Episodes",
+     "Seasons"
+    ]
+   },
+   "ask_user_when": [
+    "sub or dub is ambiguous and the user's rule doesn't say"
+   ]
+  },
+  {
+   "id": "disney",
+   "label": "Disney+",
+   "packages": [
+    "com.disney.disneyplus"
+   ],
+   "aliases": [
+    "disney plus",
+    "disney+",
+    "disney"
+   ],
+   "verified": false,
+   "tree": "partial",
+   "justwatch": [
+    "disneyplus"
+   ],
+   "title_link": {
+    "from": "justwatch",
+    "package": "com.disney.disneyplus",
+    "lands_on": "detail"
+   },
+   "notes": [
+    "In India Disney+ content is inside JioHotstar; the standalone Disney+ app is for other regions."
+   ]
+  },
+  {
+   "id": "spotify",
+   "label": "Spotify",
+   "packages": [
+    "com.spotify.tv.android"
+   ],
+   "aliases": [
+    "spotify"
+   ],
+   "verified": false,
+   "tree": "partial",
+   "search_link": {
+    "url": "spotify:search:%s",
+    "verified": false,
+    "space": "%20",
+    "lands_on": "results",
+    "note": "The TV app only reacts to spotify:search: links (not track/artist links)."
+   },
+   "notes": [
+    "Search results: Top result first; OK on a song plays it and queues similar music."
+   ],
+   "sources": [
+    "https://github.com/Hustawek/remote-control-tv"
+   ]
+  },
+  {
+   "id": "nuvio",
+   "label": "Nuvio",
+   "packages": [
+    "com.nuvio.tv",
+    "com.nuvio.app"
+   ],
+   "aliases": [
+    "nuvio",
+    "nuvio tv"
+   ],
+   "verified": false,
+   "tree": "full",
+   "title_link": {
+    "from": "imdb",
+    "url_movie": "nuvio://meta?type=movie&id=%s",
+    "url_series": "nuvio://meta?type=series&id=%s",
+    "lands_on": "detail",
+    "note": "Nuvio's DeepLinkParser accepts nuvio://meta?type=movie|series&id=<imdb id>, nuvio://movie/<id>, nuvio://series/<id>, nuvio://tmdb/<type>/<id>."
+   },
+   "notes": [
+    "Kotlin + Jetpack Compose + TV Material 3: the accessibility tree has real text (titles, 'Play', 'Resume S1 E3', 'Season 2').",
+    "Stremio-addon based: after Play it may show a STREAM list (sources from addons) unless auto-play first stream is on; pick the first stream.",
+    "Sidebar navigation on the left (Home, Search, Library, Addons, Settings); search uses a normal text box with the system keyboard (text can be set directly)."
+   ],
+   "search": {
+    "entry": [
+     "rail:Search"
+    ],
+    "keyboard": "system IME",
+    "typing": "set_text",
+    "submit": "ENTER (keyboard Done)",
+    "results": "grid below the box"
+   },
+   "buttons": {
+    "play": [
+     "Resume",
+     "Play",
+     "Play S",
+     "Resume S",
+     "Next S",
+     "Play manually"
+    ],
+    "episodes": [
+     "Season"
+    ],
+    "profile_default": "focused"
+   },
+   "screens": {
+    "home": {
+     "looks": "Hero backdrop with title, Play, rows of posters ('Continue Watching', catalog rows from addons).",
+     "focus": "Sidebar on the left; rows like Leanback.",
+     "signature": {
+      "text_any": [
+       "continue watching"
+      ]
+     }
+    },
+    "detail": {
+     "looks": "Hero with title, buttons 'Play' / 'Resume S1 E2' / 'Next S1 E3', 'Play trailer', 'Mark as watched'; Episodes section with 'Season N' chips.",
+     "focus": "Play/Resume first; DOWN into Season chips (LEFT/RIGHT), DOWN into episodes (LEFT/RIGHT), OK plays.",
+     "signature": {
+      "text_any": [
+       "mark as watched",
+       "play trailer"
+      ]
+     }
+    },
+    "stream": {
+     "looks": "List of sources with quality badges (4K, 1080p), size, addon name.",
+     "focus": "First stream focused; OK plays."
+    },
+    "profile": {
+     "looks": "Profile selection with avatars.",
+     "focus": "OK on the focused/primary profile."
+    }
+   },
+   "sources": [
+    "https://github.com/NuvioMedia/NuvioTV (app/build.gradle.kts, DeepLinkParser.kt, strings.xml)"
+   ]
+  },
+  {
+   "id": "stremio",
+   "label": "Stremio",
+   "packages": [
+    "com.stremio.one"
+   ],
+   "aliases": [
+    "stremio"
+   ],
+   "verified": false,
+   "tree": "partial",
+   "title_link": {
+    "from": "imdb",
+    "url_movie": "stremio:///detail/movie/%s",
+    "url_series": "stremio:///detail/series/%s",
+    "lands_on": "detail",
+    "verified": false
+   },
+   "notes": [
+    "Web-based UI on TV: partial tree. After choosing an episode a list of streams from addons appears; pick the first."
+   ]
+  },
+  {
+   "id": "plex",
+   "label": "Plex",
+   "packages": [
+    "com.plexapp.android"
+   ],
+   "aliases": [
+    "plex"
+   ],
+   "verified": false,
+   "tree": "partial",
+   "notes": [
+    "Left sidebar of libraries; search is in the sidebar."
+   ]
+  },
+  {
+   "id": "kodi",
+   "label": "Kodi",
+   "packages": [
+    "org.xbmc.kodi"
+   ],
+   "aliases": [
+    "kodi"
+   ],
+   "verified": false,
+   "tree": "none",
+   "notes": [
+    "Kodi draws everything itself (no tree). Main menu on the left; read from the screenshot."
+   ]
+  },
+  {
+   "id": "vlc",
+   "label": "VLC",
+   "packages": [
+    "org.videolan.vlc"
+   ],
+   "aliases": [
+    "vlc"
+   ],
+   "verified": false,
+   "tree": "full",
+   "notes": [
+    "Leanback browse UI (rows: Video, Audio, Browsing, Playlists). Standard Leanback focus."
+   ]
+  }
+ ]
+}

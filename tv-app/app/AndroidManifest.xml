@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="dev.syed.tvpilot.tv"
-    android:versionCode="18"
-    android:versionName="1.0.0">
+    android:versionCode="21"
+    android:versionName="1.2.0">
 
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.INTERNET" />
@@ -31,7 +31,8 @@
         android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
 
         <activity android:name=".MainActivity" android:exported="true"
-            android:screenOrientation="landscape" android:launchMode="singleTask">
+            android:screenOrientation="landscape" android:launchMode="singleTask"
+            android:taskAffinity="dev.syed.tvpilot.tv.settings">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -40,9 +41,14 @@
         </activity>
 
         <!-- When the mic button falls through to the system (no override running), the TV can hand it to us. -->
+        <!-- Its own task (taskAffinity) so the remote's Assistant button can never bring the Settings screen
+             (MainActivity's task) to the front: before 1.2.0 both shared the app's default affinity, so a "new task"
+             launch joined the Settings task and Settings showed when the bar closed. -->
         <activity android:name=".AssistActivity" android:exported="true"
-            android:theme="@android:style/Theme.Translucent.NoTitleBar"
-            android:excludeFromRecents="true" android:launchMode="singleTask" android:noHistory="true">
+            android:theme="@style/AssistTheme"
+            android:taskAffinity="dev.syed.tvpilot.tv.assist"
+            android:excludeFromRecents="true" android:launchMode="singleInstance" android:noHistory="true"
+            android:resizeableActivity="false" android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|keyboard|navigation">
             <intent-filter>
                 <action android:name="android.intent.action.ASSIST" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -59,6 +65,12 @@
                 <action android:name="android.speech.action.VOICE_SEARCH_HANDS_FREE" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VOICE_COMMAND" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <!-- SystemUI's assist orb (if this TV draws one) shows this icon: a blank one instead of the app icon. -->
+            <meta-data android:name="com.android.systemui.action_assist_icon" android:resource="@drawable/assist_blank" />
         </activity>
 
         <service android:name=".PilotService" android:exported="true"

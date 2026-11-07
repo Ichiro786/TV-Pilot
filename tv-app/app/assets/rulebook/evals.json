@@ -1,0 +1,105 @@
+{
+ "rulebook_version": "1.2.0-r1 (2026-10-22)",
+ "evals": [
+  {
+   "id": "vol_up",
+   "command": "volume up",
+   "check": "none"
+  },
+  {
+   "id": "mute",
+   "command": "mute",
+   "check": "none"
+  },
+  {
+   "id": "yt_search",
+   "command": "search lofi hip hop on YouTube",
+   "check": "app:youtube"
+  },
+  {
+   "id": "yt_play",
+   "command": "play Dhruv Rathee's latest video on YouTube",
+   "check": "playing"
+  },
+  {
+   "id": "yt_song",
+   "command": "play Arijit Singh Kesariya on YouTube",
+   "check": "playing"
+  },
+  {
+   "id": "nf_title",
+   "command": "open Stranger Things on Netflix",
+   "check": "screen:detail"
+  },
+  {
+   "id": "nf_play",
+   "command": "play Kota Factory on Netflix",
+   "check": "playing"
+  },
+  {
+   "id": "nf_episode",
+   "command": "play season 2 episode 3 of Stranger Things on Netflix",
+   "check": "playing"
+  },
+  {
+   "id": "prime_title",
+   "command": "open Panchayat on Prime Video",
+   "check": "screen:detail"
+  },
+  {
+   "id": "prime_play",
+   "command": "play Mirzapur on Prime Video",
+   "check": "playing"
+  },
+  {
+   "id": "hs_title",
+   "command": "open The Night Manager on JioHotstar",
+   "check": "screen:detail"
+  },
+  {
+   "id": "hs_play",
+   "command": "play Aarya on JioHotstar",
+   "check": "playing"
+  },
+  {
+   "id": "cr_play",
+   "command": "play One Piece on Crunchyroll",
+   "check": "playing"
+  },
+  {
+   "id": "nuvio_play",
+   "command": "play Breaking Bad on Nuvio",
+   "check": "playing"
+  },
+  {
+   "id": "any_app",
+   "command": "play Squid Game",
+   "check": "playing"
+  },
+  {
+   "id": "pause",
+   "command": "pause",
+   "check": "none"
+  },
+  {
+   "id": "home",
+   "command": "go home",
+   "check": "none"
+  },
+  {
+   "id": "settings_wifi",
+   "command": "open wifi settings",
+   "check": "app:settings"
+  },
+  {
+   "id": "input_hdmi1",
+   "command": "switch to HDMI 1",
+   "check": "input"
+  },
+  {
+   "id": "back_home",
+   "command": "go back",
+   "check": "none"
+  }
+ ]
+}

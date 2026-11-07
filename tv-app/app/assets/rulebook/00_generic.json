@@ -1,0 +1,175 @@
+{
+ "rulebook_version": "1.2.0-r1 (2026-10-22)",
+ "apps": [
+  {
+   "id": "generic",
+   "label": "Any Android TV app",
+   "packages": [],
+   "verified": true,
+   "tree": "unknown",
+   "notes": [
+    "Android TV is driven by the D-pad: focus moves to the nearest focusable element in the pressed direction; OK selects the focused element.",
+    "Most apps: a left navigation rail (Home, Search, Movies, Shows, My List, Settings) and horizontal rows of tiles stacked vertically.",
+    "Prefer a deep link or the app's search over browsing. Always check which element has the focus highlight before pressing OK.",
+    "BACK closes overlays/dialogs and goes up one screen; on a home screen BACK usually opens the rail or an exit dialog - never confirm Exit."
+   ],
+   "buttons": {
+    "play": [
+     "Play",
+     "Resume",
+     "Continue Watching",
+     "Continue",
+     "Watch Now",
+     "Watch",
+     "Start Watching",
+     "Play Episode",
+     "Start Over",
+     "Play from beginning",
+     "Watch Free",
+     "Abhi Dekhein",
+     "Dekhein"
+    ],
+    "episodes": [
+     "Episodes",
+     "Seasons",
+     "All Episodes",
+     "Episode List",
+     "Season"
+    ],
+    "search": [
+     "Search",
+     "Find",
+     "Search movies & series",
+     "Search movies and shows",
+     "Search titles",
+     "Khojein"
+    ],
+    "skip": [
+     "Skip Intro",
+     "Skip Recap",
+     "Skip Ad",
+     "Skip Ads",
+     "Skip",
+     "Skip Credits"
+    ],
+    "keep_watching": [
+     "Continue Watching",
+     "Keep Watching",
+     "I'm still watching",
+     "Yes",
+     "Continue"
+    ],
+    "dismiss": [
+     "Not Now",
+     "Later",
+     "Maybe Later",
+     "No Thanks",
+     "Cancel",
+     "Close",
+     "Skip for now",
+     "Dismiss"
+    ]
+   },
+   "dialogs": [
+    {
+     "when": [
+      "are you still watching",
+      "still watching",
+      "continue watching?"
+     ],
+     "press": [
+      "Continue Watching",
+      "Keep Watching",
+      "Yes",
+      "Continue"
+     ]
+    },
+    {
+     "when": [
+      "update available",
+      "new version",
+      "rate us",
+      "enjoying the app",
+      "turn on notifications"
+     ],
+     "press": [
+      "Not Now",
+      "Later",
+      "Maybe Later",
+      "No Thanks",
+      "Skip"
+     ]
+    },
+    {
+     "when": [
+      "do you want to exit",
+      "exit app",
+      "are you sure you want to exit",
+      "quit"
+     ],
+     "press": [
+      "No",
+      "Cancel",
+      "Stay"
+     ],
+     "key": "BACK"
+    },
+    {
+     "when": [
+      "skip intro",
+      "skip recap"
+     ],
+     "press": [
+      "Skip Intro",
+      "Skip Recap"
+     ],
+     "only_if": "user asked to skip or rule skip_intro"
+    }
+   ],
+   "screens": {
+    "home": {
+     "looks": "Hero/billboard at the top, then horizontal rows of posters; optional left rail of icons that expands to labels when focused.",
+     "focus": "UP/DOWN moves between rows (the row scrolls into view, focus keeps its column); LEFT/RIGHT moves along a row; LEFT from the first tile enters the rail; RIGHT from the rail returns to content.",
+     "ascii": "+----+--------------------------------------+\n|rail| HERO  (title, Play, More info)        |\n| H  |--------------------------------------|\n| S  | Row 1: [tile][tile][tile][tile] ->    |\n| M  | Row 2: [tile][tile][tile][tile] ->    |\n| ...| Row 3: ...                            |\n+----+--------------------------------------+"
+    },
+    "search": {
+     "looks": "A text box with either the system keyboard (IME) or the app's own letter grid (a-z, 0-9, space, delete); results appear beside or below.",
+     "focus": "Grid keyboards: D-pad moves between letter keys, OK types. With the system IME: text can be typed directly. After typing, results are RIGHT of a left-side keyboard or BELOW a top keyboard.",
+     "ascii": "+------------+-------------------------------+\n| [ query  ] | results grid                  |\n| a b c d e f| [tile][tile][tile][tile]      |\n| g h i j k l| [tile][tile][tile][tile]      |\n| ...  space | ...                           |\n+------------+-------------------------------+"
+    },
+    "detail": {
+     "looks": "Big backdrop, the title (or its logo), metadata, a row of buttons (Play/Resume, Trailer, Add to list), episodes/seasons and 'More like this' below.",
+     "focus": "Focus starts on the primary button (Play/Resume). DOWN goes to Episodes/Seasons, then 'More like this'.",
+     "ascii": "+--------------------------------------------+\n| TITLE / logo        2021 . U/A 13+ . 3 Seasons |\n| [> Play] [Trailer] [+ My List]             |\n| Season 1 v | Ep1 [] Ep2 [] Ep3 [] ->       |\n| More like this: [tile][tile][tile]         |\n+--------------------------------------------+"
+    },
+    "episodes": {
+     "looks": "A season selector (tabs, dropdown or a vertical list on the left) and a list of episodes with numbers/thumbnails.",
+     "focus": "Season tabs: LEFT/RIGHT; season lists: UP/DOWN on the left then RIGHT into episodes. Episodes scroll as focus moves. OK on an episode plays it.",
+     "ascii": "+-----------+--------------------------------+\n| Season 1  | 1. Pilot                        |\n| Season 2 <| 2. ...                          |\n| Season 3  | 3. ...                          |\n+-----------+--------------------------------+"
+    },
+    "player": {
+     "looks": "Full-screen video. An overlay (title, seek bar, Pause, Subtitles, Next episode) appears on OK/DOWN and hides after a few seconds.",
+     "focus": "PLAY_PAUSE toggles; LEFT/RIGHT seek when the bar shows; BACK leaves the player. 'Skip Intro'/'Next Episode' buttons take focus by themselves when shown."
+    },
+    "profile": {
+     "looks": "'Who's watching?' with round or square avatars in a row.",
+     "focus": "LEFT/RIGHT between avatars; the last used profile is usually focused already; OK selects."
+    },
+    "login": {
+     "looks": "Sign-in / phone number / QR code / activation code.",
+     "focus": "Cannot be completed by TV Pilot - tell the user to sign in."
+    },
+    "dialog": {
+     "looks": "A small centered box with 1-3 buttons.",
+     "focus": "LEFT/RIGHT or UP/DOWN between buttons; OK presses."
+    }
+   },
+   "ask_user_when": [
+    "the title exists in several installed apps and none was named",
+    "several different titles match (e.g. a show and a movie with the same name)",
+    "a profile must be chosen and no default profile is set",
+    "the app needs sign-in or a subscription"
+   ]
+  }
+ ]
+}

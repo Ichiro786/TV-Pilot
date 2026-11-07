@@ -11,7 +11,8 @@ import java.io.ByteArrayOutputStream;
 
 /**
  * Records one utterance at 16 kHz mono through whatever mic the TV routes (normally the remote's, once the mic button
- * opened it). Stops by itself after you stop talking, or after 12 s, or when stop() is called. Reports the level as it
+ * opened it). Stops by itself 1.2 s after you stop talking (judged against the room's own noise, see Endpointer),
+ * after 9 s of talking or 10 s in all (12 s hard), or when stop() is called. Reports the level as it
  * goes, and at the end what it heard: the samples plus enough to tell "the remote's mic never streamed" apart from
  * "you were quiet".
  */
@@ -22,6 +23,8 @@ final class Recorder {
         void level(float level);
         void routed(String device);
         void done(Result r);
+        /** Each 100 ms of audio as it's recorded (for streaming to Gemini Live). The array is reused: copy it. */
+        default void chunk(short[] pcm, int n) {}
     }
 
     static final class Result {
@@ -29,11 +32,20 @@ final class Recorder {
         float seconds, peak;      // peak as 0..1 level
         int peakRaw;
         boolean speech, silentStream, failed;
-        String device = "", error, source = "";
+        /** Only faint sound: it may still be words, so speech-to-text gets a go. */
+        boolean weak;
+        String device = "", error, source = "", ended = "";
     }
 
-    private volatile boolean stop;
+    /** Hard wall-clock limit for one recording once the mic is open, whatever the audio does. */
+    static final long HARD_MS = 12_000;
+
+    private volatile boolean stop, abandoned;
+    private final java.util.concurrent.atomic.AtomicBoolean reported = new java.util.concurrent.atomic.AtomicBoolean();
     private Thread thread;
+    private final ByteArrayOutputStream all = new ByteArrayOutputStream();
+    private final Result live = new Result();
+    private volatile Endpointer ep;
 
     static String describe(AudioDeviceInfo d) {
         if (d == null) return "unknown";
@@ -64,8 +76,39 @@ final class Recorder {
         thread.start();
     }
 
+    /** Ends the recording soon (the loop checks every 15 ms) and reports what was heard. */
     void stop() {
         stop = true;
+    }
+
+    /** True while the thread hasn't reported yet. */
+    boolean running() { return !reported.get(); }
+
+    /**
+     * The mic thread is stuck (a TV audio driver call that never returns): give up on it and report what was
+     * recorded so far, right now. Its own report, if it ever comes, is dropped. Returns null if it already reported.
+     */
+    Result abandon(String why) {
+        stop = true;
+        abandoned = true;
+        if (!reported.compareAndSet(false, true)) return null;
+        Thread t = thread;
+        if (t != null) t.interrupt();
+        Result r = finish(live);
+        r.error = why;
+        return r;
+    }
+
+    private Result finish(Result res) {
+        byte[] b;
+        synchronized (all) { b = all.toByteArray(); }
+        res.pcm = new short[b.length / 2];
+        for (int i = 0; i < res.pcm.length; i++) res.pcm[i] = (short) ((b[2 * i] & 0xff) | (b[2 * i + 1] << 8));
+        res.seconds = res.pcm.length / (float) RATE;
+        Endpointer e = ep;
+        if (e != null && !res.speech && e.weak && !res.failed) { res.speech = true; res.weak = true; }   // let speech-to-text decide
+        res.silentStream = !res.failed && res.peakRaw < 40;   // digital silence: the mic never really opened
+        return res;
     }
 
     /** How many recordings other apps have open right now (Android hides who, but not how many). */
@@ -125,20 +168,22 @@ final class Recorder {
     }
 
     private void run(Context context, Listener l) {
-        Result res = new Result();
+        Result res = live;
         AudioRecord rec = null;
-        ByteArrayOutputStream all = new ByteArrayOutputStream();
+        Endpointer e = new Endpointer();
+        ep = e;
         try {
             rec = open(context, res);
             short[] buf = new short[RATE / 10];   // 100 ms
-            int filled = 0, chunks = 0, loud = 0, quietAfter = 0, restarts = 0;
+            int filled = 0, chunks = 0, restarts = 0;
             boolean routedSent = false, gotSound = false;
-            long started = System.currentTimeMillis(), lastData = started;
+            long started = System.currentTimeMillis(), lastData = started, opened = started;
             while (!stop) {
+                long now = System.currentTimeMillis();
+                if (now - opened > HARD_MS) { res.ended = "hard time limit"; Log.w("mic: hard time limit reached"); break; }
                 // Non-blocking: right after Google lets go, the remote's mic can open but send nothing.
                 int n = rec.read(buf, filled, buf.length - filled, AudioRecord.READ_NON_BLOCKING);
                 if (n < 0) throw new IllegalStateException("microphone read failed (" + n + ")");
-                long now = System.currentTimeMillis();
                 if (n > 0) lastData = now;
                 filled += n;
                 if (filled < buf.length) {
@@ -146,8 +191,7 @@ final class Recorder {
                         if (restarts >= 2) throw new IllegalStateException("the mic opened but sent nothing");
                         restarts++;
                         Log.w("mic stuck, reopening it");
-                        try { rec.stop(); } catch (RuntimeException ignored) {}
-                        rec.release();
+                        release(rec);
                         rec = null;
                         rec = open(context, res);
                         started = lastData = System.currentTimeMillis();
@@ -159,72 +203,69 @@ final class Recorder {
                 }
                 filled = 0;
                 chunks++;
-                long sum = 0;
                 int peak = 0;
-                for (int i = 0; i < buf.length; i++) {
-                    int v = buf[i];
-                    sum += (long) v * v;
-                    int av = Math.abs(v);
-                    if (av > peak) peak = av;
-                    all.write(v & 0xff);
-                    all.write((v >> 8) & 0xff);
+                synchronized (all) {
+                    for (int i = 0; i < buf.length; i++) {
+                        int v = buf[i];
+                        int av = Math.abs(v);
+                        if (av > peak) peak = av;
+                        all.write(v & 0xff);
+                        all.write((v >> 8) & 0xff);
+                    }
                 }
                 if (peak > 40) gotSound = true;
                 if (peak > res.peakRaw) res.peakRaw = peak;
-                double rms = Math.sqrt(sum / (double) buf.length);
-                double db = 20 * Math.log10(Math.max(1, rms) / 32768.0);
-                float lv = (float) Math.max(0, Math.min(1, (db + 52) / 38));
+                float db = Endpointer.db(buf, buf.length);
+                Endpointer.Verdict v = e.feed(db);
+                float lv = e.level(db);
                 res.peak = Math.max(res.peak, lv);
-                l.level(lv);
+                res.speech = e.speech;
+                try { l.level(lv); l.chunk(buf, buf.length); } catch (RuntimeException ex) { Log.w("mic listener: " + ex); }
                 if (!routedSent && chunks >= 3) {
                     routedSent = true;
                     res.device = describe(rec.getRoutedDevice());
-                    l.routed(res.device);
+                    try { l.routed(res.device); } catch (RuntimeException ignored) {}
                 }
                 // Silence for the first 2 s of a fresh mic: reopen once (it sometimes streams zeros at first).
                 if (!gotSound && chunks == 20 && restarts == 0) {
                     restarts++;
                     Log.w("only silence so far, reopening the mic");
-                    try { rec.stop(); } catch (RuntimeException ignored) {}
-                    rec.release();
+                    release(rec);
                     rec = null;
                     rec = open(context, res);
                     lastData = System.currentTimeMillis();
                     continue;
                 }
-                // End of speech: talking (level > 0.38 for 0.2 s), then 1.1 s under 0.22.
-                if (lv > 0.38f) {
-                    loud++;
-                    quietAfter = 0;
-                    if (loud >= 2) res.speech = true;
-                } else if (res.speech && lv < 0.22f) {
-                    if (++quietAfter >= 11) break;
+                if (v != Endpointer.Verdict.CONTINUE) {
+                    res.ended = e.why;
+                    if (chunks == 1 || v != Endpointer.Verdict.END_SPEECH) Log.w("mic: " + e.why);
+                    break;
                 }
-                if (!res.speech && chunks >= 70) break;   // 7 s and nothing said
-                if (chunks >= 120) break;                 // 12 s max
             }
+            if (stop && res.ended.isEmpty()) res.ended = "stopped";
+            Log.w(String.format(java.util.Locale.US, "mic: %s after %d chunks, floor %.0f dB, speech %s%s", res.ended, chunks,
+                    Float.isNaN(e.floor) ? -99f : e.floor, e.speech, e.weak && !e.speech ? " (faint sound only)" : ""));
             if (!routedSent && rec != null) res.device = describe(rec.getRoutedDevice());
-        } catch (SecurityException e) {
+        } catch (SecurityException ex) {
             res.failed = true;
             res.error = "microphone permission is off";
-        } catch (InterruptedException e) {
+        } catch (InterruptedException ex) {
+            if (!stop) { res.failed = true; res.error = "stopped"; }
+        } catch (Throwable ex) {   // never leave the bar stuck on "Listening" (an Error would skip done())
             res.failed = true;
-            res.error = "stopped";
-        } catch (RuntimeException e) {
-            res.failed = true;
-            res.error = e.getMessage() == null ? e.toString() : e.getMessage();
+            res.error = ex.getMessage() == null ? ex.toString() : ex.getMessage();
         } finally {
-            if (rec != null) {
-                try { rec.stop(); } catch (RuntimeException ignored) {}
-                rec.release();
-            }
+            release(rec);
         }
-        byte[] b = all.toByteArray();
-        res.pcm = new short[b.length / 2];
-        for (int i = 0; i < res.pcm.length; i++) res.pcm[i] = (short) ((b[2 * i] & 0xff) | (b[2 * i + 1] << 8));
-        res.seconds = res.pcm.length / (float) RATE;
-        res.silentStream = !res.failed && res.peakRaw < 40;   // digital silence: the mic never really opened
-        l.done(res);
+        if (!reported.compareAndSet(false, true)) return;   // abandoned: someone else already reported
+        try { l.done(finish(res)); } catch (RuntimeException ex) { Log.w("mic done handler: " + ex); }
+    }
+
+    /** Stops and frees the mic, never throwing (and never left open). */
+    private static void release(AudioRecord rec) {
+        if (rec == null) return;
+        try { rec.stop(); } catch (Throwable ignored) {}
+        try { rec.release(); } catch (Throwable ignored) {}
     }
 
     /** 16-bit mono WAV of the samples. */

@@ -19,6 +19,9 @@ public final class AssistActivity extends Activity implements Pilot.Host {
         Prefs.init(this);
         root = new FrameLayout(this);
         setContentView(root);
+        overridePendingTransition(0, 0);
+        PilotService svc = PilotService.instance;
+        if (svc != null) svc.probeWindows("assist activity " + (getIntent() == null ? "" : getIntent().getAction()));
     }
 
     @Override protected void onResume() {
@@ -52,24 +55,33 @@ public final class AssistActivity extends Activity implements Pilot.Host {
         return super.onKeyUp(code, e);
     }
 
-    @Override public void attach(MicBar bar) {
+    @Override public boolean attach(MicBar bar) {
+        if (isFinishing() || isDestroyed()) return false;
         int w = getResources().getDisplayMetrics().widthPixels;
         FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT,
                 Math.round(w / 1920f * 330), Gravity.BOTTOM);
         root.addView(bar, lp);
+        return true;
     }
 
     @Override public void detach(MicBar bar) {
         root.removeView(bar);
-        finish();
-        overridePendingTransition(0, 0);
+        if (!isFinishing()) {
+            finish();
+            overridePendingTransition(0, 0);
+        }
     }
 
     @Override protected void onStop() {
         super.onStop();
         if (!isChangingConfigurations()) {
-            // The bar may have moved to the overlay to drive the TV; only a bar still living here is cancelled.
-            if (Pilot.get(this).hostedBy(this)) Pilot.get(this).cancel();
+            // The bar may have moved to the overlay to drive the TV. A bar still living here: if a task or recording is
+            // running it carries on (moved over to the overlay, or without a bar), otherwise it's simply closed.
+            Pilot p = Pilot.get(this);
+            if (p.hostedBy(this)) {
+                if (p.acting()) p.hostGone(this);
+                else p.cancel();
+            }
             finish();
         }
     }

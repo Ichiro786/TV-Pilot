@@ -60,6 +60,38 @@ final class SetupServer {
         return null;
     }
 
+    private static String voiceOptions() {
+        StringBuilder b = new StringBuilder();
+        for (int i = 0; i < Live.VOICES.length; i++) {
+            String v = Live.VOICES[i];
+            b.append("<option value=").append(v).append(v.equals(Prefs.liveVoice()) ? " selected" : "").append(">")
+                    .append(v).append(" \u2014 ").append(Live.VOICE_STYLES[i]).append("</option>");
+        }
+        return b.toString();
+    }
+
+    /** The learn log + learned.json + the last accuracy test, as one zip. */
+    private void sendLearn(Socket c) throws Exception {
+        OutputStream o = c.getOutputStream();
+        o.write(("HTTP/1.1 200 OK\r\nContent-Type: application/zip\r\nContent-Disposition: attachment; filename=tvpilot-learn.zip\r\nConnection: close\r\n\r\n").getBytes(StandardCharsets.US_ASCII));
+        java.util.zip.ZipOutputStream z = new java.util.zip.ZipOutputStream(o);
+        z.putNextEntry(new java.util.zip.ZipEntry("learned.json"));
+        z.write(Rulebook.learnedJson().getBytes(StandardCharsets.UTF_8));
+        z.closeEntry();
+        z.putNextEntry(new java.util.zip.ZipEntry("summary.txt"));
+        z.write(("TV Pilot TV 1.2.0, rulebook " + Rulebook.version + "\nLast accuracy test:\n" + Prefs.lastEval() + "\nLog: " + Learn.stats() + "\n").getBytes(StandardCharsets.UTF_8));
+        z.closeEntry();
+        java.io.File d = Learn.dir();
+        java.io.File[] fs = d == null ? null : d.listFiles();
+        if (fs != null) for (java.io.File f : fs) {
+            z.putNextEntry(new java.util.zip.ZipEntry("learn/" + f.getName()));
+            java.nio.file.Files.copy(f.toPath(), z);
+            z.closeEntry();
+        }
+        z.finish();
+        o.flush();
+    }
+
     private void handle(Socket c) throws Exception {
         BufferedReader in = new BufferedReader(new InputStreamReader(c.getInputStream(), StandardCharsets.UTF_8));
         String request = in.readLine();
@@ -70,6 +102,7 @@ final class SetupServer {
             if (line.toLowerCase().startsWith("content-length:")) length = Integer.parseInt(line.substring(15).trim());
         }
         String message = "";
+        if (request.startsWith("GET /learn")) { sendLearn(c); return; }
         if (request.startsWith("POST")) {
             char[] body = new char[Math.min(length, 8192)];
             int read = 0;
@@ -78,7 +111,7 @@ final class SetupServer {
                 if (n < 0) break;
                 read += n;
             }
-            String key = null, model = null, liquid = null, vmLink = null, vmKey = null;
+            String key = null, model = null, liquid = null, vmLink = null, vmKey = null, engine = null, liveVoice = null;
             for (String pair : new String(body, 0, read).split("&")) {
                 int eq = pair.indexOf('=');
                 if (eq < 0) continue;
@@ -88,12 +121,17 @@ final class SetupServer {
                 if (k.equals("liquid")) liquid = v;
                 if (k.equals("vmlink")) vmLink = v;
                 if (k.equals("vmkey")) vmKey = v;
+                if (k.equals("engine")) engine = v;
+                if (k.equals("livevoice")) liveVoice = v;
+                if (k.equals("profile")) Prefs.profile(v);
             }
             if (key != null && !key.trim().isEmpty()) Prefs.geminiKey(key);
             if (model != null) Prefs.model(model);
             if (liquid != null && !liquid.trim().isEmpty()) Prefs.liquidKey(liquid);
             if (vmLink != null && !vmLink.trim().isEmpty()) Prefs.vmLink(vmLink);
             if (vmKey != null && !vmKey.trim().isEmpty()) Prefs.vmKey(vmKey);
+            if (engine != null) Prefs.engine(engine);
+            if (liveVoice != null) for (String lv : Live.VOICES) if (lv.equals(liveVoice)) Prefs.liveVoice(lv);
             message = "<p class=ok>Saved on the TV ✓</p>";
             Log.w("settings saved from the phone");
             if (onSaved != null) onSaved.run();
@@ -102,7 +140,7 @@ final class SetupServer {
         String html = "<!doctype html><html><head><meta name=viewport content='width=device-width,initial-scale=1'>"
                 + "<title>TV Pilot TV</title><style>body{font-family:system-ui,sans-serif;background:#000;color:#fff;margin:0;padding:28px}"
                 + "h1{font-size:26px;margin:0 0 6px}p{color:#aaa}label{display:block;margin:22px 0 8px;color:#ddd}"
-                + "input{width:100%;box-sizing:border-box;padding:16px;border-radius:18px;border:1px solid #333;background:#141416;color:#fff;font-size:16px}"
+                + "input,select{width:100%;box-sizing:border-box;padding:16px;border-radius:18px;border:1px solid #333;background:#141416;color:#fff;font-size:16px}"
                 + "button{margin-top:26px;width:100%;padding:16px;border:0;border-radius:28px;background:#fff;color:#000;font-size:17px;font-weight:600}"
                 + ".ok{color:#7CFFA4;font-weight:600}</style></head><body><h1>TV Pilot TV</h1><p>Settings for the TV, from your phone.</p>"
                 + message + "<form method=post action='/'><label>Gemini API key (" + has + ")</label>"
@@ -113,8 +151,15 @@ final class SetupServer {
                 + "<input name=vmlink autocomplete=off placeholder='https://8080-your-server…'>"
                 + "<label>Your server key (" + (Prefs.vmKey().isEmpty() ? "not set" : "set ✓ (leave blank to keep it)") + ")</label>"
                 + "<input name=vmkey type=password autocomplete=off>"
-                + "<label>Gemini model</label><input name=model value='" + Prefs.model().replace("'", "") + "'>"
-                + "<button>Save to TV</button></form></body></html>";
+                + "<label>Brain</label><select name=engine>"
+                + "<option value=classic" + (Prefs.live() ? "" : " selected") + ">Classic (d1 + Gemini Flash Lite + speech server + Phonon)</option>"
+                + "<option value=live" + (Prefs.live() ? " selected" : "") + ">Gemini 3.8 Live (uses the Gemini key)</option></select>"
+                + "<label>Gemini Live voice</label><select name=livevoice>" + voiceOptions() + "</select>"
+                + "<label>Gemini model (speech to text)</label><input name=model value='" + Prefs.model().replace("'", "") + "'>"
+                + "<label>Streaming profile to pick on \u201CWho's watching?\u201D (blank: the one already selected)</label><input name=profile value='" + Prefs.profile().replace("'", "") + "'>"
+                + "<button>Save to TV</button></form>"
+                + "<p style='margin-top:28px'><a style='color:#9cf' href='/learn'>Download the learn log</a> (what TV Pilot saw on each screen, for improving its rulebook). "
+                + "Rulebook " + Rulebook.version + ". " + Learn.stats() + ".</p></body></html>";
         byte[] out = html.getBytes(StandardCharsets.UTF_8);
         OutputStream o = c.getOutputStream();
         o.write(("HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: " + out.length

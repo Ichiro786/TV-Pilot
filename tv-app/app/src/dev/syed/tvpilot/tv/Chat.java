@@ -3,10 +3,7 @@ package dev.syed.tvpilot.tv;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import java.io.OutputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.nio.charset.StandardCharsets;
+import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.Deque;
 
@@ -29,6 +26,13 @@ final class Chat {
         while (history.size() > 6) history.removeFirst();
     }
 
+    /** Recent turns as plain lines (for Gemini Live's instructions). */
+    static synchronized String transcript() {
+        StringBuilder b = new StringBuilder();
+        for (String[] h : history) b.append("User: ").append(h[0]).append("\nYou: ").append(h[1]).append("\n");
+        return b.toString();
+    }
+
     private static synchronized JSONArray past() throws Exception {
         JSONArray a = new JSONArray();
         for (String[] h : history) {
@@ -42,8 +46,15 @@ final class Chat {
             + "Everything you write is spoken aloud by a text-to-speech voice, so write plain spoken sentences: "
             + "no emoji, no markdown, no lists, no URLs. Be warm, casual and brief.";
 
-    /** Decides what kind of request this is and what to say first. Null when Gemini isn't reachable. */
+    /** Why the last call failed (a sentence for the user), or null. */
+    static volatile String lastError;
+    /** The last failure was "couldn't read the reply" (worth one retry), not "Gemini is unreachable / key rejected". */
+    static volatile boolean lastUnreadable;
+
+    /** Decides what kind of request this is and what to say first. Null when Gemini isn't reachable (see lastError). */
     static Route route(String command, String onScreen) {
+        lastError = null;
+        lastUnreadable = false;
         try {
             String system = PERSONA + "\n\nDecide what the user wants. Reply with JSON only: {\"mode\":\"tv\"|\"chat\",\"say\":\"...\"}.\n"
                     + "mode tv: anything the TV should do (open or play something, search an app, change volume, settings, go home, pause, "
@@ -54,14 +65,15 @@ final class Chat {
                     + "you may end with an offer like \"Want me to put it on?\"\n"
                     + "If the user says yes to an offer you just made, that is mode tv.\n"
                     + "On screen right now: " + (onScreen == null ? "unknown" : onScreen) + ".";
-            JSONObject o = json(call(system, command, 400, true));
-            if (o == null) return null;
+            JSONObject o = json(call(system, command, 400, true, 12_000));
+            if (o == null) { lastUnreadable = true; return null; }
             String say = o.optString("say").trim();
             boolean tv = !"chat".equals(o.optString("mode"));
-            if (!tv && say.isEmpty()) return null;
+            if (!tv && say.isEmpty()) { lastUnreadable = true; return null; }
             return new Route(tv, say);
         } catch (Exception e) {
-            Log.w("chat route failed: " + e.getMessage());
+            lastError = Net.explain(e);
+            Log.w("chat route failed: " + e);
             return null;
         }
     }
@@ -71,11 +83,12 @@ final class Chat {
     static String answer(String command) {
         try {
             String system = PERSONA + "\n\nAnswer the user in at most 3 short spoken sentences. Reply with JSON only: {\"say\":\"...\"}.";
-            JSONObject o = json(call(system, command, 400, true));
+            JSONObject o = json(call(system, command, 400, true, 12_000));
             String s = o == null ? "" : o.optString("say").trim();
             return s.isEmpty() ? null : s;
         } catch (Exception e) {
-            Log.w("chat answer failed: " + e.getMessage());
+            lastError = Net.explain(e);
+            Log.w("chat answer failed: " + e);
             return null;
         }
     }
@@ -86,7 +99,7 @@ final class Chat {
                     + " and reported: \"" + outcome + "\". Tell the user in one short spoken sentence (under 15 words) what happened"
                     + (ok ? "." : ", and if it helps, what they could try instead.") + " Do not invent anything the report doesn't say. "
                     + "Reply with JSON only: {\"say\":\"...\"}.";
-            JSONObject o = json(call(system, "Write the reply.", 200, false));
+            JSONObject o = json(call(system, "Write the reply.", 200, false, 8_000));
             String s = o == null ? "" : o.optString("say").trim();
             return s.isEmpty() ? outcome : s;
         } catch (Exception e) {
@@ -101,33 +114,27 @@ final class Chat {
         try { return new JSONObject(text.substring(s, e + 1)); } catch (Exception ex) { return null; }
     }
 
-    private static String call(String system, String user, int maxTokens, boolean withHistory) throws Exception {
+    private static String call(String system, String user, int maxTokens, boolean withHistory, int totalMs) throws Exception {
         String key = Prefs.geminiKey();
-        if (key.isEmpty()) return null;
+        if (key.isEmpty()) throw new Net.Fail(Gemini.NO_KEY, 0, false, "no key");
         JSONArray msgs = new JSONArray().put(new JSONObject().put("role", "system").put("content", system));
         if (withHistory) { JSONArray p = past(); for (int i = 0; i < p.length(); i++) msgs.put(p.get(i)); }
         msgs.put(new JSONObject().put("role", "user").put("content", user));
         JSONObject body = new JSONObject().put("model", Prefs.chatModel()).put("temperature", 0.6).put("max_tokens", maxTokens)
                 .put("reasoning_effort", "none").put("response_format", new JSONObject().put("type", "json_object")).put("messages", msgs);
         for (int attempt = 0; attempt < 2; attempt++) {
-            HttpURLConnection c = (HttpURLConnection) new URL(Vision.URL).openConnection();
-            c.setConnectTimeout(8000);
-            c.setReadTimeout(20000);
-            c.setRequestMethod("POST");
-            c.setDoOutput(true);
-            c.setRequestProperty("Content-Type", "application/json");
-            c.setRequestProperty("Authorization", "Bearer " + key);
-            try (OutputStream o = c.getOutputStream()) { o.write(body.toString().getBytes(StandardCharsets.UTF_8)); }
-            int code = c.getResponseCode();
-            String text = Server.read(code >= 400 ? c.getErrorStream() : c.getInputStream());
-            if (code == 200) {
-                JSONArray ch = new JSONObject(text).optJSONArray("choices");
-                return ch == null ? null : ch.optJSONObject(0).optJSONObject("message").optString("content");
+            Net.Response r = Net.postJson(Vision.URL, body.toString(), new String[][] {{"Authorization", "Bearer " + key}}, 6000, totalMs, "Gemini");
+            if (r.code == 200) {
+                JSONArray ch = new JSONObject(r.body).optJSONArray("choices");
+                JSONObject first = ch == null ? null : ch.optJSONObject(0);
+                JSONObject msg = first == null ? null : first.optJSONObject("message");
+                return msg == null ? null : msg.optString("content");
             }
-            Log.w("chat: Gemini said " + code + ": " + (text.length() > 120 ? text.substring(0, 120) : text));
-            if (code != 400) return null;
+            Log.w("chat: Gemini said " + r.code + ": " + Net.shorten(r.body, 120));
+            boolean badKey = Net.errorMessage(r.body).toLowerCase(java.util.Locale.US).contains("api key");
+            if (r.code != 400 || badKey || !body.has("reasoning_effort")) throw Net.http(r.code, r.body, "Gemini");
             body.remove("reasoning_effort");   // some models don't take it: try once more without
         }
-        return null;
+        throw new IOException("Gemini didn't accept the request");
     }
 }

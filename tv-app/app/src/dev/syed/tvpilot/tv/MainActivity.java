@@ -37,7 +37,7 @@ public final class MainActivity extends Activity implements Pilot.Host {
     private final SetupServer server = new SetupServer();
     private FrameLayout root;
     private TextView heroTitle, heroText, diag;
-    private Row setupRow, overrideRow, micRow, testRow, inputRow, keyRow, geminiRow, modelRow, playRow, viaRow, assistantRow, googleRow, speakRow, voiceRow, asrRow, whoRow, freeRow, typeRow, brainRow, deciderRow, liquidRow, vmLinkRow, vmKeyRow, visionRow, rulesRow, autoRow;
+    private Row engineRow, liveVoiceRow, diagRow, setupRow, overrideRow, micRow, testRow, inputRow, keyRow, geminiRow, modelRow, playRow, viaRow, assistantRow, googleRow, speakRow, voiceRow, asrRow, whoRow, freeRow, typeRow, brainRow, deciderRow, liquidRow, vmLinkRow, vmKeyRow, visionRow, rulesRow, autoRow, evalRow, learnRow, profileRow;
     private boolean adbRunning;
     private String adbStatus;
 
@@ -68,7 +68,7 @@ public final class MainActivity extends Activity implements Pilot.Host {
         logo.setImageResource(R.mipmap.ic_launcher);
         left.addView(logo, new LinearLayout.LayoutParams(px(132), px(132)));
         left.addView(text("TV Pilot TV", 64, Color.WHITE, true), margins(0, 26, 0, 0));
-        left.addView(text("1.0.0 \u00B7 your AI voice remote", 26, 0xFF9A9AA0, false), margins(0, 6, 0, 0));
+        left.addView(text("1.1.0 \u00B7 your AI voice remote", 26, 0xFF9A9AA0, false), margins(0, 6, 0, 0));
         heroTitle = text("", 34, Color.WHITE, true);
         left.addView(heroTitle, margins(0, 54, 0, 0));
         heroText = text("", 24, 0xFFB8B8BE, false);
@@ -96,7 +96,18 @@ public final class MainActivity extends Activity implements Pilot.Host {
             if (err != null) typeRow.flash(err);
             else moveTaskToBack(true);
         }));
-        brainRow = new Row(list, "Brain", v -> { String cur = Prefs.brain(); Prefs.brain("hybrid".equals(cur) ? "vision" : "vision".equals(cur) ? "d1" : "hybrid"); refresh(); });
+        engineRow = new Row(list, "Brain", v -> { Prefs.engine(Prefs.live() ? "classic" : "live"); refresh(); });
+        liveVoiceRow = new Row(list, "Gemini Live voice", v -> pickLiveVoice());
+        diagRow = new Row(list, "Diagnostics \u00B7 Test connection", v -> diagnostics());
+        evalRow = new Row(list, "Accuracy test (20 standard tasks)", v -> {
+            if (Evals.busy()) { Evals.stop(this); evalRow.flash("Stopping the test\u2026"); return; }
+            evalRow.flash("Running \u2014 the TV will drive itself. Select again to stop.");
+            Evals.start(this, line -> { Log.w("eval: " + line); main.post(this::refresh); });
+            main.postDelayed(() -> moveTaskToBack(true), 1500);
+        });
+        learnRow = new Row(list, "Learn log", v -> { Prefs.learnLog(!Prefs.learnLog()); refresh(); });
+        profileRow = new Row(list, "Streaming profile", v -> prompt("Profile to pick on \u201CWho's watching?\u201D (blank: the selected one)", Prefs.profile(), false, t -> { Prefs.profile(t); refresh(); }));
+        brainRow = new Row(list, "Classic strategy", v -> { String cur = Prefs.brain(); Prefs.brain("hybrid".equals(cur) ? "vision" : "vision".equals(cur) ? "d1" : "hybrid"); refresh(); });
         deciderRow = new Row(list, "Decision model", v -> { Prefs.decider("liquid".equals(Prefs.decider()) ? "self" : "liquid"); refresh(); });
         liquidRow = new Row(list, "Liquid API key", v -> prompt("Liquid API key", "", true, k -> { if (!k.trim().isEmpty()) Prefs.liquidKey(k); refresh(); }));
         vmLinkRow = new Row(list, "Your server link", v -> prompt("Your server link (any one port's link)", Prefs.vmLink(), false, t -> { Prefs.vmLink(t); refresh(); }));
@@ -151,6 +162,15 @@ public final class MainActivity extends Activity implements Pilot.Host {
         main.removeCallbacks(tick);
         server.stop();
         PilotService.learnUntil = 0;
+    }
+
+    @Override protected void onStop() {
+        super.onStop();
+        Pilot p = Pilot.get(this);
+        if (p.hostedBy(this)) {
+            if (p.acting()) p.hostGone(this);
+            else p.cancel();
+        }
     }
 
     @Override public void onRequestPermissionsResult(int code, String[] p, int[] r) {
@@ -257,6 +277,95 @@ public final class MainActivity extends Activity implements Pilot.Host {
         }, "tvpilot-adb").start();
     }
 
+    private String diagStatus;
+    private boolean diagRunning;
+
+    /** Runs every check and shows the results as they come in. */
+    private void diagnostics() {
+        if (diagRunning) return;
+        diagRunning = true;
+        diagStatus = "Checking\u2026";
+        refresh();
+        final StringBuilder sb = new StringBuilder();
+        final TextView body = text("Checking\u2026", 22, Color.WHITE, false);
+        body.setPadding(px(48), px(24), px(48), px(24));
+        body.setLineSpacing(0, 1.2f);
+        ScrollView sv = new ScrollView(this);
+        sv.addView(body);
+        final AlertDialog d = new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+                .setTitle("Diagnostics").setView(sv).setPositiveButton("Close", null).show();
+        new Thread(() -> {
+            try {
+                Diagnostics.run(this, (line, last) -> main.post(() -> {
+                    sb.append(sb.length() == 0 ? "" : "\n").append(line);
+                    body.setText(sb.toString() + (last ? "" : "\n\u2026"));
+                    Log.w("diag: " + line);
+                }));
+            } catch (Throwable e) {
+                main.post(() -> body.setText(sb + "\n\u2717 Diagnostics stopped: " + Net.explain(e)));
+            }
+            main.post(() -> {
+                diagRunning = false;
+                int bad = 0;
+                for (String l : sb.toString().split("\n")) if (l.startsWith(Diagnostics.BAD)) bad++;
+                diagStatus = bad == 0 ? "All checks passed \u2713" : bad + " problem" + (bad == 1 ? "" : "s") + " found \u2014 select to run again";
+                refresh();
+            });
+        }, "tvpilot-diag").start();
+    }
+
+    private static String liveStyle(String v) {
+        for (int i = 0; i < Live.VOICES.length; i++) if (Live.VOICES[i].equals(v)) return Live.VOICE_STYLES[i];
+        return "custom";
+    }
+
+    private Live preview;
+
+    /** Gemini Live's prebuilt voices; picking one plays a short preview through a tiny Live session. */
+    private void pickLiveVoice() {
+        final String[] items = new String[Live.VOICES.length];
+        for (int i = 0; i < items.length; i++) items[i] = Live.VOICES[i] + " \u2014 " + Live.VOICE_STYLES[i];
+        int cur = 0;
+        for (int i = 0; i < Live.VOICES.length; i++) if (Live.VOICES[i].equals(Prefs.liveVoice())) cur = i;
+        new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+                .setTitle(Prefs.geminiKey().isEmpty() ? "Gemini Live voice \u00B7 add the Gemini key to hear them" : "Gemini Live voice \u00B7 select one to hear it")
+                .setSingleChoiceItems(items, cur, (d, which) -> {
+                    Prefs.liveVoice(Live.VOICES[which]);
+                    previewLive(Live.VOICES[which]);
+                    refresh();
+                })
+                .setPositiveButton("Done", (d, w) -> stopPreview())
+                .setOnDismissListener(d -> { stopPreview(); refresh(); })
+                .show();
+    }
+
+    private void previewLive(final String voice) {
+        stopPreview();
+        String key = Prefs.geminiKey();
+        if (key.isEmpty()) { liveVoiceRow.flash("Add the Gemini key to hear the voices"); return; }
+        liveVoiceRow.flash("Playing " + voice + "\u2026");
+        final Live l = new Live(key, Prefs.liveModel(), voice,
+                "You are a voice preview. Say the user's sentence aloud exactly as written, warmly, and nothing else.", null,
+                new Live.Events() {
+                    @Override public void ready() {}
+                    @Override public void heard(String t) {}
+                    @Override public void said(String t) {}
+                    @Override public void level(float lv) {}
+                    @Override public void step(String w) {}
+                    @Override public void finished(String h, String s) {}
+                    @Override public void failed(String reason, boolean before) { main.post(() -> liveVoiceRow.flash("Preview failed: " + reason)); }
+                });
+        preview = l;
+        l.start();
+        l.text("Hi, I'm " + voice + ". Kya dekhna hai aaj? What should we watch?");
+    }
+
+    private void stopPreview() {
+        Live l = preview;
+        preview = null;
+        if (l != null) l.cancel();
+    }
+
     private void learn() {
         if (PilotService.instance == null) {
             keyRow.flash("Turn on the mic button service first");
@@ -345,6 +454,15 @@ public final class MainActivity extends Activity implements Pilot.Host {
         vmLinkRow.set(Prefs.hasVm() ? "Set \u2713 \u2014 d1 :8080, Parakeet :8081, Phonon :8082" : "Not set \u2014 your own d1 / Parakeet / Phonon server (optional)" + (ip == null ? "" : ", or paste it from your phone: http://" + ip + ":" + SetupServer.PORT), Prefs.hasVm());
         vmKeyRow.set(Prefs.vmKey().isEmpty() ? "Not set" : "Set \u2713", !Prefs.vmKey().isEmpty());
         liquidRow.set((Prefs.liquidKey().isEmpty() ? "Not set" : "Set \u2713") + (ip == null ? "" : "  \u2014 or paste it from your phone: http://" + ip + ":" + SetupServer.PORT), !Prefs.liquidKey().isEmpty());
+        boolean liveOn = Prefs.live();
+        engineRow.set(liveOn ? (Prefs.geminiKey().isEmpty() ? "Gemini 3.8 Live \u2014 needs the Gemini key below (Classic runs until then)" : "Gemini 3.8 Live: speech to speech, sees the screen (Classic is the backup)")
+                : "Classic: d1 + Gemini Flash Lite + your speech server + Phonon \u2014 select for Gemini 3.8 Live", liveOn && !Prefs.geminiKey().isEmpty());
+        liveVoiceRow.set(Prefs.liveVoice() + " \u2014 " + liveStyle(Prefs.liveVoice()) + "  (select to hear and pick another; Live only)", false);
+        diagRow.set(diagStatus != null ? diagStatus : "Checks Gemini, Gemini Live, your server, d1, Liquid, Phonon and TV debugging", false);
+        String ev = Prefs.lastEval();
+        evalRow.set(Evals.busy() ? "Running\u2026 select to stop" : ev.isEmpty() ? "Plays standard tasks in your apps and measures the success rate" : ev.split("\n")[0], false);
+        learnRow.set((Prefs.learnLog() ? "On \u2014 " : "Off \u2014 ") + Learn.stats() + " \u00B7 rulebook " + Rulebook.version + " \u00B7 export from the phone page /learn", Prefs.learnLog());
+        profileRow.set(Prefs.profile().isEmpty() ? "The one that's already selected" : Prefs.profile(), false);
         typeRow.set("Test any action without speaking, e.g. \u201Cplay lofi on YouTube\u201D", false);
         brainRow.set("hybrid".equals(brain) ? "Hybrid: the decision model acts first, Gemini steps in only when needed"
                 : "vision".equals(brain) ? "Gemini vision every time (decision model is the backup)"
@@ -355,8 +473,8 @@ public final class MainActivity extends Activity implements Pilot.Host {
         whoRow.set(Setup.holders.isEmpty() ? "Asks Android which apps hold the mic, including hidden ones" : "Holding it: " + android.text.TextUtils.join(", ", Setup.holders), !Setup.holders.isEmpty());
         freeRow.set(!Setup.holders.isEmpty() ? "Stop " + android.text.TextUtils.join(", ", Setup.holders) + " for now (nothing gets switched off)"
                 : "Stops (never switches off) the app \u201CWho has the mic?\u201D finds", false);
-        speakRow.set(!Prefs.speakSetting() ? "Off \u2014 replies only show on screen" : Prefs.hasVm() ? "On \u2014 TV Pilot answers out loud (Phonon on your server)" : "On, but needs your server link (Phonon) \u2014 replies show on screen until then", Prefs.speak());
-        voiceRow.set(Prefs.voice() + "  \u2014 select to hear and pick another", false);
+        speakRow.set(!Prefs.speakSetting() ? "Off \u2014 replies only show on screen" : Prefs.hasVm() ? "On \u2014 Phonon on your server (the TV's own voice if it's offline)" : "On \u2014 the TV's own voice (add your server link for Phonon)", Prefs.speak());
+        voiceRow.set(Prefs.voice() + "  \u2014 Phonon voice for Classic; select to hear and pick another", false);
         asrRow.set("gemini".equals(Prefs.asr()) || !Prefs.hasVm() ? (Prefs.geminiKey().isEmpty() ? "Gemini (needs a key below)" : "Gemini") + (Prefs.hasVm() ? "" : " \u2014 add your server link for Parakeet") : "Parakeet on your server", false);
         viaRow.set(Prefs.viaActivity() ? "See-through screen in front (best for the mic)" : "Overlay over the app (doesn't pause what's playing)", false);
         testRow.set(running ? "Or just press the mic button on your remote" : "Records on this screen", false);
@@ -372,13 +490,17 @@ public final class MainActivity extends Activity implements Pilot.Host {
             heroText.setText(last.substring(Math.min(last.length(), 7)));
         }
         diag.setText("Keys seen: " + PilotService.recentKeys() + "\nWindows seen: " + PilotService.recentWindows()
-                + "\nOther recordings open now: " + Recorder.othersRecording(this) + "\n" + Log.recent(12));
+                + "\nOther recordings open now: " + Recorder.othersRecording(this)
+                + (Prefs.lastCrash().isEmpty() ? "" : "\nLast crash: " + Prefs.lastCrash().split("\n")[0])
+                + "\n" + Log.recent(12));
     }
 
     // MARK: - Pilot.Host (the bar on this screen)
 
-    @Override public void attach(MicBar bar) {
+    @Override public boolean attach(MicBar bar) {
+        if (isFinishing() || isDestroyed()) return false;
         root.addView(bar, new FrameLayout.LayoutParams(-1, Math.round(330 * k), Gravity.BOTTOM));
+        return true;
     }
 
     @Override public void detach(MicBar bar) {

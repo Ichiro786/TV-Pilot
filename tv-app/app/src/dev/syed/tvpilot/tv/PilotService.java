@@ -79,7 +79,8 @@ public final class PilotService extends AccessibilityService implements Pilot.Ho
         wm = (WindowManager) getSystemService(WINDOW_SERVICE);
         AccessibilityServiceInfo info = getServiceInfo();
         if (info != null) {
-            info.flags |= AccessibilityServiceInfo.FLAG_REQUEST_FILTER_KEY_EVENTS | AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS;
+            info.flags |= AccessibilityServiceInfo.FLAG_REQUEST_FILTER_KEY_EVENTS | AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS
+                    | AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS | AccessibilityServiceInfo.FLAG_INCLUDE_NOT_IMPORTANT_VIEWS;
             info.eventTypes |= AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED | AccessibilityEvent.TYPE_WINDOWS_CHANGED;
             setServiceInfo(info);
         }
@@ -88,12 +89,19 @@ public final class PilotService extends AccessibilityService implements Pilot.Ho
 
     @Override public boolean onUnbind(Intent intent) {
         instance = null;
+        main.removeCallbacksAndMessages(null);
+        bouncing = false;
+        try { Pilot.get(this).hostGone(this); } catch (RuntimeException ignored) {}
+        MicBar c = circle;
+        circle = null;
+        if (c != null) detach(c);
         Log.w("mic button service off");
         return super.onUnbind(intent);
     }
 
     @Override public void onDestroy() {
-        instance = null;
+        if (instance == this) instance = null;
+        main.removeCallbacksAndMessages(null);
         super.onDestroy();
     }
 
@@ -141,6 +149,7 @@ public final class PilotService extends AccessibilityService implements Pilot.Ho
         if (Prefs.override() && isMicKey(code)) {
             if (down && e.getRepeatCount() == 0) {
                 Log.w("mic key " + KeyEvent.keyCodeToString(code) + " caught");
+                probeWindows("key " + KeyEvent.keyCodeToString(code));
                 openPilot();
             }
             return true;   // Google never sees it
@@ -236,6 +245,7 @@ public final class PilotService extends AccessibilityService implements Pilot.Ho
         backs = 0;
         launchedAt = guard ? -1 : 0;
         Log.w((guard ? "closing Google again: " : "Google's voice popup opened, taking over: ") + pkg);
+        if (!guard) probeWindows("popup " + pkg);
         if (!guard) showCircle();
         if (assistantOnScreen(true) != null) {   // first Back right away, no waiting for the next frame
             performGlobalAction(GLOBAL_ACTION_BACK);
@@ -280,7 +290,7 @@ public final class PilotService extends AccessibilityService implements Pilot.Ho
     private void showCircle() {
         if (circle != null || Pilot.get(this).showing()) return;
         circle = new MicBar(this);
-        attach(circle);
+        if (!attach(circle)) { circle = null; return; }
         circle.showCircle();
     }
 
@@ -300,7 +310,8 @@ public final class PilotService extends AccessibilityService implements Pilot.Ho
 
     // MARK: - Pilot.Host: the bar as an overlay along the bottom of the screen
 
-    @Override public void attach(MicBar bar) {
+    @Override public boolean attach(MicBar bar) {
+        if (wm == null) return false;
         int w = getResources().getDisplayMetrics().widthPixels;
         int h = Math.round(w / 1920f * 330);
         WindowManager.LayoutParams lp = new WindowManager.LayoutParams(WindowManager.LayoutParams.MATCH_PARENT, h,
@@ -312,8 +323,10 @@ public final class PilotService extends AccessibilityService implements Pilot.Ho
         lp.setTitle("TV Pilot voice bar");
         try {
             wm.addView(bar, lp);
+            return true;
         } catch (RuntimeException e) {
             Log.w("overlay failed: " + e);
+            return false;
         }
     }
 
@@ -322,6 +335,98 @@ public final class PilotService extends AccessibilityService implements Pilot.Ho
             if (bar.getParent() != null) wm.removeView(bar);
         } catch (RuntimeException ignored) {
         }
+    }
+
+    // MARK: - Reading the screen (1.2.0): the whole UI tree in a few ms, with the focused element, for the executor
+
+    /** The app windows' UI trees (plus the on-screen keyboard), without TV Pilot's own windows. Empty when unavailable. */
+    Ui.Snapshot snapshot() {
+        Ui.Snapshot s = new Ui.Snapshot();
+        s.source = "a11y";
+        try {
+            android.util.DisplayMetrics dm = new android.util.DisplayMetrics();
+            if (wm != null) { wm.getDefaultDisplay().getRealMetrics(dm); s.width = dm.widthPixels; s.height = dm.heightPixels; }
+            List<AccessibilityWindowInfo> ws = getWindows();
+            String activePkg = null;
+            for (AccessibilityWindowInfo w : ws) {
+                int type = w.getType();
+                if (type != AccessibilityWindowInfo.TYPE_APPLICATION && type != AccessibilityWindowInfo.TYPE_INPUT_METHOD && type != AccessibilityWindowInfo.TYPE_SYSTEM) continue;
+                AccessibilityNodeInfo root = w.getRoot();
+                if (root == null) continue;
+                CharSequence p = root.getPackageName();
+                if (p == null || getPackageName().contentEquals(p)) continue;
+                if (type == AccessibilityWindowInfo.TYPE_SYSTEM && !"com.android.systemui".contentEquals(p)) continue;
+                if (type == AccessibilityWindowInfo.TYPE_APPLICATION && (activePkg == null || w.isActive() || w.isFocused())) activePkg = p.toString();
+                walk(root, -1, 0, s);
+            }
+            if (activePkg != null) s.pkg = activePkg;
+            Ui.fillDeep(s);
+        } catch (RuntimeException e) {
+            Log.w("snapshot: " + e);
+        }
+        return s;
+    }
+
+    private static void walk(AccessibilityNodeInfo n, int parent, int depth, Ui.Snapshot s) {
+        if (n == null || depth > 45 || s.nodes.size() > 1800) return;
+        Ui.Node x = new Ui.Node();
+        x.idx = s.nodes.size();
+        x.parent = parent;
+        x.depth = depth;
+        x.cls = str(n.getClassName());
+        x.text = str(n.getText());
+        x.desc = str(n.getContentDescription());
+        x.resId = str(n.getViewIdResourceName());
+        x.pkg = str(n.getPackageName());
+        if (android.os.Build.VERSION.SDK_INT >= 26) x.hint = str(n.getHintText());
+        x.clickable = n.isClickable(); x.focusable = n.isFocusable(); x.focused = n.isFocused(); x.selected = n.isSelected();
+        x.editable = n.isEditable(); x.scrollable = n.isScrollable(); x.checked = n.isChecked(); x.enabled = n.isEnabled();
+        x.visible = n.isVisibleToUser();
+        android.graphics.Rect r = new android.graphics.Rect();
+        n.getBoundsInScreen(r);
+        x.l = r.left; x.t = r.top; x.r = r.right; x.b = r.bottom;
+        x.handle = n;
+        s.nodes.add(x);
+        int c = n.getChildCount();
+        for (int i = 0; i < c; i++) walk(n.getChild(i), x.idx, depth + 1, s);
+    }
+
+    private static String str(CharSequence c) { return c == null ? "" : c.toString(); }
+
+    static boolean act(Ui.Node n, int action, android.os.Bundle args) {
+        if (n == null || !(n.handle instanceof AccessibilityNodeInfo)) return false;
+        AccessibilityNodeInfo a = (AccessibilityNodeInfo) n.handle;
+        try {
+            a.refresh();
+            return args == null ? a.performAction(action) : a.performAction(action, args);
+        } catch (RuntimeException e) {
+            return false;
+        }
+    }
+
+    /** What's on screen in the moments after the mic button (to find out what draws a white circle). */
+    static volatile String lastWindowsAfterMic = "";
+
+    void probeWindows(String why) {
+        final long until = SystemClock.uptimeMillis() + 1600;
+        final StringBuilder seen = new StringBuilder(why).append(": ");
+        final java.util.Set<String> keys = new java.util.HashSet<>();
+        main.post(new Runnable() {
+            @Override public void run() {
+                try {
+                    for (AccessibilityWindowInfo w : getWindows()) {
+                        AccessibilityNodeInfo r = w.getRoot();
+                        String p = r == null ? "?" : str(r.getPackageName());
+                        android.graphics.Rect b = new android.graphics.Rect();
+                        w.getBoundsInScreen(b);
+                        String k = p + " type=" + w.getType() + " layer=" + w.getLayer() + " " + b.width() + "x" + b.height() + " '" + str(w.getTitle()) + "'";
+                        if (keys.add(k)) seen.append(k).append("; ");
+                    }
+                } catch (RuntimeException ignored) {}
+                if (SystemClock.uptimeMillis() < until) main.postDelayed(this, 120);
+                else { lastWindowsAfterMic = seen.toString(); Log.w("windows after mic: " + lastWindowsAfterMic); }
+            }
+        });
     }
 
     static Set<String> assistants() {

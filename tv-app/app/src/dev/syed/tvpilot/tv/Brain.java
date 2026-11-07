@@ -2,9 +2,6 @@ package dev.syed.tvpilot.tv;
 
 import org.json.JSONObject;
 
-import java.io.OutputStream;
-import java.net.HttpURLConnection;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -97,7 +94,15 @@ final class Brain {
             "hey tv", "ok tv", "hey", "please", "can you", "could you", "would you", "i want to", "i wanna",
             "i'd like to", "let's", "lets", "for me", "on the tv", "on tv",
             "play", "watch", "put on", "search for", "search", "find", "show me", "look up",
-            "stream", "start", "open", "launch", "some", "the app", "app", "application", "now");
+            "stream", "start", "open", "launch", "some", "the app", "app", "application", "now",
+            // Hindi / Hinglish ("dhruv rathee ka video lagao" -> "dhruv rathee")
+            "lagao", "laga do", "lagado", "chalao", "chala do", "chalado", "dikhao", "dikha do", "kholo", "khol do", "sunao",
+            "bajao", "baja do", "chalu karo", "chalu kar do", "karo", "kar do", "zara", "mujhe", "dekhna hai", "dekhni hai",
+            "sunna hai", "wala", "wali", "wale", "pe", "mein");
+
+    /** Words that only say what kind of thing it is: dropped at the end ("... ka video"), kept if nothing else is left. */
+    private static final List<String> TRAILING = Arrays.asList("ka latest video", "ki latest video", "ka naya video", "ka video", "ki video",
+            "ke videos", "ka gaana", "ke gaane", "ka", "ki", "ke", "video", "videos");
 
     static boolean mentionsList(String command) {
         String c = command.toLowerCase(Locale.US);
@@ -129,7 +134,10 @@ final class Brain {
         Collections.sort(words, (x, y) -> y.length() - x.length());
         for (String f : words) c = c.replaceAll("\\b" + Pattern.quote(f) + "\\b", " ");
         c = c.replaceAll("[?!.,]", " ").replaceAll("\\s+", " ").trim();
-        for (int i = 0; i < 3; i++) c = c.replaceAll("^(and|then|the|from|in|on|to)\\s+", "").replaceAll("\\s+(and|then|from|in|on)$", "").trim();
+        for (int i = 0; i < 3; i++) c = c.replaceAll("^(and|then|from|in|on|to)\\s+", "").replaceAll("\\s+(and|then|from|in|on)$", "").trim();
+        for (int i = 0; i < 3; i++) for (String t : TRAILING) {
+            if (c.endsWith(" " + t) && c.length() > t.length() + 2) c = c.substring(0, c.length() - t.length() - 1).trim();
+        }
         return c;
     }
 
@@ -210,8 +218,9 @@ final class Brain {
             case "watch": {
                 String query = query(command, apps);
                 Tv.App target = app != null ? app : onScreen;
+                if (target == null && !query.isEmpty()) target = defaultPlayer(apps);   // "play lofi": YouTube, like Google Assistant
                 if (!query.isEmpty() && target == null) return Plan.none("Which app should I play " + query + " in?", conf);
-                if (!query.isEmpty()) return new Plan(Collections.singletonList(Action.search(target, query)), "Finding " + query + " in " + target.label, conf);
+                if (!query.isEmpty()) return new Plan(Collections.singletonList(Action.search(target, query)), "Searching " + target.label + " for " + nice(query), conf);
                 if (app != null) return new Plan(Collections.singletonList(Action.open(app)), "Opening " + app.label, conf);
                 return Plan.none("What should I play?", conf);
             }
@@ -245,6 +254,23 @@ final class Brain {
         }
     }
 
+    /** "dhruv rathee" -> "Dhruv Rathee" for what's shown and said. */
+    static String nice(String q) {
+        StringBuilder b = new StringBuilder();
+        for (String w : q.split(" ")) {
+            if (w.isEmpty()) continue;
+            if (b.length() > 0) b.append(' ');
+            b.append(Character.toUpperCase(w.charAt(0))).append(w.substring(1));
+        }
+        return b.toString();
+    }
+
+    /** Where to play something when no app is named: YouTube (or TizenTube) if it's installed. */
+    static Tv.App defaultPlayer(List<Tv.App> apps) {
+        for (Tv.App a : apps) if (a.searchUrl != null && a.aliases.contains("youtube")) return a;
+        return null;
+    }
+
     private static JSONObject ask(JSONObject all, JSONObject state, String... names) throws Exception {
         JSONObject qs = new JSONObject();
         for (String n : names) qs.put(n, all.getJSONObject(n));
@@ -253,22 +279,39 @@ final class Brain {
         if ("liquid".equals(Prefs.decider()) && !lk.isEmpty() && System.currentTimeMillis() > liquidDownUntil) {
             try {
                 JSONObject lb = new JSONObject(body.toString()).put("model", Prefs.liquidModel());
-                JSONObject a = postWith(LIQUID, lk, lb, 15000).getJSONObject("answers");
+                JSONObject a = postWith(LIQUID, lk, lb, 12_000).getJSONObject("answers");
                 lastDecider = Prefs.liquidModel();
                 return a;
             } catch (InterruptedException e) {
                 throw e;
             } catch (Exception e) {
-                liquidDownUntil = System.currentTimeMillis() + 5 * 60_000;   // credit out or API down: use the VM for a while
-                Log.w("Liquid " + Prefs.liquidModel() + " failed, your d1 takes over: " + e.getMessage());
+                if (Thread.currentThread().isInterrupted()) throw new InterruptedException();
+                liquidError = Net.explain(e);
+                // Only skip Liquid for a while when there's a d1 to fall back on; with no server, every request retries it
+                // (one slow answer must not break the next five minutes).
+                if (Prefs.hasVm()) liquidDownUntil = System.currentTimeMillis() + (isLasting(e) ? 5 * 60_000 : 30_000);
+                Log.w("Liquid " + Prefs.liquidModel() + " failed" + (Prefs.hasVm() ? ", your d1 takes over: " : ": ") + e);
+                if (!Prefs.hasVm()) throw e instanceof Net.Fail ? (Net.Fail) e : new Net.Fail("Liquid " + Prefs.liquidModel() + " failed: " + liquidError, 0, false, e.toString());
             }
         }
-        JSONObject res = post(Server.url(8080) + "/v1/systemone", body, 60000);
+        if (!Prefs.hasVm()) throw new Net.Fail(Prefs.liquidKey().isEmpty() ? "No Liquid key or server set for the decision model \u2014 add one in Settings"
+                : "self".equals(Prefs.decider()) ? "Decision model is set to your d1, but no server link is set"
+                : "Liquid failed a moment ago (" + liquidError + ") and no server is set for d1", 0, false, "no decider");
+        if (Boolean.FALSE.equals(Server.knownUp())) throw new Net.Fail(Server.OFFLINE, 0, true, "server known down");
+        JSONObject res = post(Server.url(8080) + "/v1/systemone", body, 25_000);
         lastDecider = "d1 on the VM";
         return res.getJSONObject("answers");
     }
 
     static final String LIQUID = "https://api.liquid.ai/decisions/v1/systemone";
+
+    /** Out of credit, bad key, rate-limited: worth skipping Liquid for a few minutes (vs. one slow answer). */
+    private static boolean isLasting(Exception e) {
+        if (!(e instanceof Net.Fail)) return false;
+        int c = ((Net.Fail) e).code;
+        return c == 401 || c == 402 || c == 403 || c == 429;
+    }
+    static volatile String liquidError;
     private static volatile long liquidDownUntil;
     static volatile String lastDecider = "d1";
 
@@ -277,29 +320,49 @@ final class Brain {
     }
 
     private static JSONObject postWith(String url, String key, JSONObject body, int timeout) throws Exception {
-        HttpURLConnection c = (HttpURLConnection) new java.net.URL(url).openConnection();
-        c.setRequestMethod("POST");
-        c.setConnectTimeout(8000);
-        c.setReadTimeout(timeout);
-        c.setDoOutput(true);
-        c.setRequestProperty("Content-Type", "application/json");
-        c.setRequestProperty("Authorization", "Bearer " + key);
-        try (OutputStream o = c.getOutputStream()) { o.write(body.toString().getBytes(StandardCharsets.UTF_8)); }
-        int code = c.getResponseCode();
-        String text = Server.read(code >= 400 ? c.getErrorStream() : c.getInputStream());
-        if (code != 200) throw new IllegalStateException("said " + code + ": " + (text.length() > 100 ? text.substring(0, 100) : text));
-        return new JSONObject(text);
+        Net.Response r = Net.postJson(url, body.toString(), new String[][] {{"Authorization", "Bearer " + key}}, 6000, timeout, "Liquid");
+        if (r.code != 200) throw Net.http(r.code, r.body, "Liquid");
+        return new JSONObject(r.body);
     }
 
     static JSONObject post(String url, JSONObject body, int timeout) throws Exception {
-        HttpURLConnection c = Server.open(url, "POST", timeout);
-        c.setDoOutput(true);
-        c.setRequestProperty("Content-Type", "application/json");
-        try (OutputStream o = c.getOutputStream()) { o.write(body.toString().getBytes(StandardCharsets.UTF_8)); }
-        int code = c.getResponseCode();
-        String text = Server.read(code >= 400 ? c.getErrorStream() : c.getInputStream());
-        if (code != 200) throw new IllegalStateException("server said " + code + (code == 502 || code == 503 ? " (the VM may be waking up, try again)" : ""));
-        return new JSONObject(text);
+        Net.Response r;
+        try {
+            r = Net.postJson(url, body.toString(), Server.auth(), 6000, timeout, "Your d1 server");
+        } catch (java.io.IOException e) {
+            throw Server.note(e);
+        }
+        if (r.code != 200) throw Server.note(Net.http(r.code, r.body, "Your d1 server"));
+        Server.markUp();
+        return new JSONObject(r.body);
+    }
+
+    /** Diagnostics: one tiny question to Liquid (null = fine). */
+    static String checkLiquid() {
+        if (Prefs.liquidKey().isEmpty()) return "No Liquid key set";
+        try {
+            JSONObject b = tinyQuestion().put("model", Prefs.liquidModel());
+            postWith(LIQUID, Prefs.liquidKey(), b, 15_000).getJSONObject("answers");
+            return null;
+        } catch (Exception e) {
+            return Net.explain(e);
+        }
+    }
+
+    /** Diagnostics: the same tiny question to your d1 (null = fine). */
+    static String checkD1() {
+        if (!Prefs.hasVm()) return "No server link set";
+        try {
+            post(Server.url(8080) + "/v1/systemone", tinyQuestion(), 25_000).getJSONObject("answers");
+            return null;
+        } catch (Exception e) {
+            return Net.explain(e);
+        }
+    }
+
+    private static JSONObject tinyQuestion() throws Exception {
+        return new JSONObject().put("state", new JSONObject().put("command", "volume up"))
+                .put("questions", new JSONObject().put("intent", choice("What does the person want?", map("volume", "Change the sound", "other", "Anything else"))));
     }
 
     private static JSONObject choice(String instructions, Map<String, String> criteria) throws Exception {

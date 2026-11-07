@@ -1,0 +1,121 @@
+{
+ "rulebook_version": "1.2.0-r1 (2026-10-22)",
+ "apps": [
+  {
+   "id": "freemytv",
+   "label": "Free My TV (home screen)",
+   "packages": [
+    "io.freemytv"
+   ],
+   "aliases": [
+    "home",
+    "home screen",
+    "free my tv"
+   ],
+   "verified": false,
+   "tree": "full",
+   "protected": true,
+   "notes": [
+    "Syed's own home screen (his fork). NEVER disable, clear or force-stop it. HOME returns here.",
+    "Rows of app banners and widgets (date/time). Apps are opened by TV Pilot with launch intents, not by browsing this screen."
+   ]
+  },
+  {
+   "id": "tcl_launcher",
+   "label": "TCL home / system apps",
+   "packages": [
+    "com.tcl.tvlauncher",
+    "com.tcl.waterfall.overseas",
+    "com.tcl.tv",
+    "com.tcl.settings"
+   ],
+   "verified": false,
+   "tree": "partial",
+   "protected": true,
+   "notes": [
+    "TCL system and bloat packages: never disable, clear, force-stop or uninstall (Syed's rule). Only read the screen."
+   ]
+  },
+  {
+   "id": "googletv_home",
+   "label": "Google TV home",
+   "packages": [
+    "com.google.android.apps.tv.launcherx",
+    "com.google.android.tvlauncher"
+   ],
+   "verified": false,
+   "tree": "full",
+   "protected": true,
+   "notes": [
+    "Disabled on Syed's TCL on purpose (never re-enable or touch it). On the Sony it's the home screen: top tabs For you / Movies / Shows / Apps / Library, search orb at the top left.",
+    "Global search lives in Google's apps (Katniss) - TV Pilot doesn't use it, it opens Google Assistant."
+   ]
+  },
+  {
+   "id": "katniss",
+   "label": "Google voice search",
+   "packages": [
+    "com.google.android.katniss",
+    "com.google.android.googlequicksearchbox"
+   ],
+   "verified": true,
+   "tree": "partial",
+   "protected": true,
+   "notes": [
+    "Google's voice popup. Never modify, disable or uninstall (Syed's rule). TV Pilot only closes its popup with BACK when the user pressed the mic for TV Pilot."
+   ]
+  },
+  {
+   "id": "settings",
+   "label": "Android TV Settings",
+   "packages": [
+    "com.android.tv.settings",
+    "com.sony.dtv.settings",
+    "com.tcl.settings"
+   ],
+   "verified": false,
+   "tree": "full",
+   "intents": {
+    "settings": "android.settings.SETTINGS",
+    "wifi": "android.settings.WIFI_SETTINGS",
+    "bluetooth": "android.settings.BLUETOOTH_SETTINGS",
+    "display": "android.settings.DISPLAY_SETTINGS",
+    "sound": "android.settings.SOUND_SETTINGS",
+    "date": "android.settings.DATE_SETTINGS",
+    "apps": "android.settings.APPLICATION_SETTINGS",
+    "accessibility": "android.settings.ACCESSIBILITY_SETTINGS",
+    "developer": "android.settings.APPLICATION_DEVELOPMENT_SETTINGS",
+    "storage": "android.settings.INTERNAL_STORAGE_SETTINGS",
+    "inputs": "android.settings.INPUT_SETTINGS",
+    "about": "android.settings.DEVICE_INFO_SETTINGS"
+   },
+   "notes": [
+    "Settings is a vertical list (Leanback preferences) on the right side; UP/DOWN moves, OK opens, BACK goes up. Text is in the tree.",
+    "Open a page directly with its intent; then find the row by its text."
+   ],
+   "screens": {
+    "home": {
+     "looks": "A panel on the right with a vertical list of rows (icon + title + summary).",
+     "focus": "UP/DOWN through rows; OK opens; RIGHT on a row with a switch/slider changes it."
+    }
+   }
+  },
+  {
+   "id": "inputs",
+   "label": "Inputs (HDMI)",
+   "packages": [
+    "com.mediatek.wwtv.tvcenter",
+    "com.tcl.tv",
+    "com.sony.dtv.tvx",
+    "com.droidlogic.tvinput",
+    "com.google.android.tv"
+   ],
+   "verified": false,
+   "tree": "partial",
+   "notes": [
+    "Switch input directly: read the input ids from `dumpsys tv_input` and open content://android.media.tv/passthrough/<input id> (VIEW). HDMI 1/2/3 are matched by label.",
+    "Fallback: the TV's Inputs panel lists HDMI 1..4, AV, TV; UP/DOWN and OK."
+   ]
+  }
+ ]
+}

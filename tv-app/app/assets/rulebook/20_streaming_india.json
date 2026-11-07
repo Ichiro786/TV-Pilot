@@ -1,0 +1,248 @@
+{
+ "rulebook_version": "1.2.0-r1 (2026-10-22)",
+ "apps": [
+  {
+   "id": "jiohotstar",
+   "label": "JioHotstar",
+   "packages": [
+    "in.startv.hotstar",
+    "in.startv.hotstartv",
+    "in.startv.hotstartvonly",
+    "in.startv.hotstar.dplus.tv"
+   ],
+   "aliases": [
+    "jiohotstar",
+    "jio hotstar",
+    "hotstar",
+    "disney hotstar",
+    "jiocinema",
+    "jio cinema",
+    "disney plus hotstar"
+   ],
+   "verified": false,
+   "tree": "partial",
+   "justwatch": [
+    "jiohotstar",
+    "hotstar",
+    "jiocinema",
+    "disneyplushotstar"
+   ],
+   "title_link": {
+    "from": "justwatch",
+    "lands_on": "detail",
+    "note": "Links are https://www.hotstar.com/in/<shows|movies>/<slug>/<id>; the app's DeeplinkActivity accepts hotstar:// and https://www.hotstar.com (seen in the phone app; TV app unverified)."
+   },
+   "notes": [
+    "JioCinema merged into JioHotstar in 2025: 'JioCinema' means JioHotstar.",
+    "Left rail of icons: My Space (profile), Search, Home, TV, Movies, Sports, Sparks, Categories. Focus in the rail expands labels.",
+    "Title page: 'Watch Now'/'Watch Latest Episode'/'Continue Watching S1 E4' first; 'Seasons' tabs and episodes below. 'Subscribe to watch' means no plan - don't press.",
+    "Live cricket opens straight into the player; language/feed choice may pop up."
+   ],
+   "search": {
+    "entry": [
+     "rail:Search"
+    ],
+    "keyboard": "grid (a-z) with Hindi/English toggle",
+    "typing": "input_text",
+    "results": "grid to the right/below"
+   },
+   "buttons": {
+    "play": [
+     "Watch Now",
+     "Watch Latest Episode",
+     "Continue Watching",
+     "Resume",
+     "Watch",
+     "Play",
+     "Watch First Episode",
+     "Watch Free",
+     "Abhi Dekhein"
+    ],
+    "episodes": [
+     "Episodes",
+     "Seasons",
+     "Season"
+    ],
+    "never": [
+     "Subscribe",
+     "Subscribe to watch",
+     "Upgrade",
+     "Buy"
+    ],
+    "profile_default": "focused"
+   },
+   "dialogs": [
+    {
+     "when": [
+      "choose language",
+      "select language",
+      "audio language"
+     ],
+     "press": [
+      "Hindi",
+      "English"
+     ],
+     "only_if": "user rule language"
+    }
+   ],
+   "screens": {
+    "home": {
+     "looks": "Dark UI with a left icon rail, a big hero spotlight with a 'Watch Now' button, rows (Continue Watching, Latest Releases, Popular Shows, Sports).",
+     "focus": "Focus starts on the hero; DOWN into rows; LEFT reaches the rail.",
+     "ascii": "+--+-------------------------------------------+\n|Me| SPOTLIGHT  [Watch Now] [+]                 |\n|Q |-------------------------------------------|\n|H | Continue Watching: [t][t][t][t] ->          |\n|TV| Latest Releases:   [t][t][t][t] ->          |\n|Mv| Popular in India:  [t][t][t][t] ->          |\n+--+-------------------------------------------+"
+    },
+    "detail": {
+     "looks": "Backdrop with title art, year/genre/language chips, 'Watch Now' or 'Watch Latest Episode' button, '+ Watchlist', seasons tabs and an episode row.",
+     "focus": "Primary button first; DOWN to Seasons tabs (LEFT/RIGHT), DOWN into episodes (LEFT/RIGHT), OK plays."
+    },
+    "search": {
+     "looks": "Letter keyboard on the left, trending searches/results on the right.",
+     "focus": "Type then RIGHT into results."
+    },
+    "profile": {
+     "looks": "'Who's watching?' avatars, 'Kids' profile among them.",
+     "focus": "OK on the focused profile unless the user named one."
+    }
+   },
+   "sources": [
+    "https://beta.pithus.org/report/4c0b6ec31446005bebc04dd29bf68de8949f4d53bec72f4f2d9e3e1e9c9593f2",
+    "https://github.com/durgesh0505/chiggi_morphe_patches",
+    "https://apk.now/apk/jiostar-india-private-limited/hotstar-android-tv/"
+   ]
+  },
+  {
+   "id": "zee5",
+   "label": "ZEE5",
+   "packages": [
+    "com.graymatrix.did",
+    "com.zee5.androidtv"
+   ],
+   "aliases": [
+    "zee5",
+    "zee 5",
+    "zee"
+   ],
+   "verified": false,
+   "tree": "partial",
+   "justwatch": [
+    "zee5"
+   ],
+   "title_link": {
+    "from": "justwatch",
+    "lands_on": "detail"
+   },
+   "notes": [
+    "Top menu (Home, TV Shows, Movies, Web Series, News, Live TV, Search icon). Title page: 'Watch' / 'Resume' / 'Watch Free with Ads'; 'Buy Plan' means locked - don't press."
+   ],
+   "buttons": {
+    "play": [
+     "Watch",
+     "Resume",
+     "Watch Now",
+     "Watch Free",
+     "Play",
+     "Continue"
+    ],
+    "never": [
+     "Buy Plan",
+     "Subscribe",
+     "Upgrade"
+    ]
+   }
+  },
+  {
+   "id": "sonyliv",
+   "label": "SonyLIV",
+   "packages": [
+    "com.sonyliv"
+   ],
+   "aliases": [
+    "sonyliv",
+    "sony liv",
+    "sony"
+   ],
+   "verified": false,
+   "tree": "partial",
+   "justwatch": [
+    "sonyliv"
+   ],
+   "title_link": {
+    "from": "justwatch",
+    "lands_on": "detail"
+   },
+   "notes": [
+    "Media3 player. Left rail/top menu with Search. Title page: 'Watch Now'/'Resume'/'Watch Free'; seasons dropdown + episodes."
+   ],
+   "buttons": {
+    "play": [
+     "Watch Now",
+     "Resume",
+     "Watch Free",
+     "Play",
+     "Continue Watching"
+    ],
+    "never": [
+     "Subscribe",
+     "Subscribe Now"
+    ]
+   },
+   "sources": [
+    "https://github.com/durgesh0505/chiggi_morphe_patches"
+   ]
+  },
+  {
+   "id": "sunnxt",
+   "label": "Sun NXT",
+   "packages": [
+    "com.suntv.sunnxt"
+   ],
+   "aliases": [
+    "sun nxt",
+    "sunnxt"
+   ],
+   "verified": false,
+   "tree": "partial",
+   "justwatch": [
+    "sunnxt"
+   ],
+   "notes": [
+    "Top menu with Search. Title page 'Play'/'Resume'."
+   ]
+  },
+  {
+   "id": "aha",
+   "label": "aha",
+   "packages": [
+    "ahaflix.tv"
+   ],
+   "aliases": [
+    "aha"
+   ],
+   "verified": false,
+   "tree": "partial",
+   "justwatch": [
+    "ahavideo",
+    "aha"
+   ],
+   "notes": [
+    "Telugu/Tamil OTT. Title page 'Play'/'Watch Now'."
+   ]
+  },
+  {
+   "id": "jiotv",
+   "label": "JioTV+",
+   "packages": [
+    "com.jio.media.jiotvplus"
+   ],
+   "aliases": [
+    "jiotv",
+    "jio tv"
+   ],
+   "verified": false,
+   "tree": "partial",
+   "notes": [
+    "Live channels grid / EPG. 'Switch to channel X': use its search or channel number input."
+   ]
+  }
+ ]
+}

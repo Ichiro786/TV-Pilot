@@ -5,18 +5,19 @@ import android.util.Base64;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import java.io.ByteArrayOutputStream;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.nio.charset.StandardCharsets;
+import java.io.IOException;
 
 /** Speech to text with Gemini (generateContent with the recording inline), straight from the TV. */
 final class Gemini {
     private Gemini() {}
 
+    static final String BASE = "https://generativelanguage.googleapis.com/v1beta/models/";
+    static final String NO_KEY = "No Gemini key set \u2014 add it in TV Pilot TV's Settings";
+
+    static String clean(String model) { return model.replaceAll("[^A-Za-z0-9._-]", ""); }
+
     static String transcribe(short[] pcm, String key, String model) throws Exception {
+        if (key == null || key.isEmpty()) throw new Net.Fail(NO_KEY, 0, false, "no key");
         String audio = Base64.encodeToString(Recorder.wav(pcm), Base64.NO_WRAP);
         String prompt = "Transcribe this voice command spoken to a TV remote exactly as said. The speaker may use English, "
                 + "Hindi or Hinglish: write Hindi words in Latin script. Keep app, movie, show and channel names as they are "
@@ -26,30 +27,14 @@ final class Gemini {
                         .put(new JSONObject().put("text", prompt))
                         .put(new JSONObject().put("inline_data", new JSONObject().put("mime_type", "audio/wav").put("data", audio))))))
                 .put("generationConfig", new JSONObject().put("temperature", 0));
-        URL url = new URL("https://generativelanguage.googleapis.com/v1beta/models/" + model.replaceAll("[^A-Za-z0-9._-]", "") + ":generateContent");
-        HttpURLConnection c = (HttpURLConnection) url.openConnection();
-        c.setConnectTimeout(8000);
-        c.setReadTimeout(30000);
-        c.setRequestMethod("POST");
-        c.setDoOutput(true);
-        c.setRequestProperty("Content-Type", "application/json");
-        c.setRequestProperty("x-goog-api-key", key);
-        try (OutputStream o = c.getOutputStream()) {
-            o.write(body.toString().getBytes(StandardCharsets.UTF_8));
-        }
-        int code = c.getResponseCode();
-        String resp = read(code >= 400 ? c.getErrorStream() : c.getInputStream());
-        c.disconnect();
-        if (code >= 400) {
-            String msg = resp;
-            try { msg = new JSONObject(resp).getJSONObject("error").optString("message", resp); } catch (Exception ignored) {}
-            throw new Exception("Gemini " + code + ": " + (msg.length() > 140 ? msg.substring(0, 140) + "…" : msg));
-        }
-        JSONObject o = new JSONObject(resp);
+        Net.Response r = Net.postJson(BASE + clean(model) + ":generateContent", body.toString(),
+                new String[][] {{"x-goog-api-key", key}}, 6000, 25_000, "Gemini");
+        if (r.code >= 400) throw Net.http(r.code, r.body, "Gemini");
+        JSONObject o = new JSONObject(r.body);
         JSONArray cands = o.optJSONArray("candidates");
         if (cands == null || cands.length() == 0) return "";
-        JSONArray parts = cands.getJSONObject(0).optJSONObject("content") == null ? null
-                : cands.getJSONObject(0).getJSONObject("content").optJSONArray("parts");
+        JSONObject content = cands.getJSONObject(0).optJSONObject("content");
+        JSONArray parts = content == null ? null : content.optJSONArray("parts");
         StringBuilder b = new StringBuilder();
         if (parts != null) for (int i = 0; i < parts.length(); i++) {
             JSONObject p = parts.getJSONObject(i);
@@ -59,13 +44,17 @@ final class Gemini {
         return b.toString().trim().replaceAll("^\"|\"$", "");
     }
 
-    private static String read(InputStream in) throws Exception {
-        if (in == null) return "";
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        byte[] buf = new byte[8192];
-        int n;
-        while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
-        in.close();
-        return out.toString("UTF-8");
+    /** Diagnostics: is the key good and does this model exist? Costs nothing (a model lookup). Null when fine. */
+    static String check(String key, String model) {
+        if (key == null || key.isEmpty()) return NO_KEY;
+        try {
+            Net.Response r = Net.request(BASE + clean(model), "GET", null, null, new String[][] {{"x-goog-api-key", key}}, 6000, 10_000, "Gemini");
+            if (r.code == 200) return null;
+            if (r.code == 400 && Net.errorMessage(r.body).toLowerCase(java.util.Locale.US).contains("api key"))
+                return "Gemini rejected the key \u2014 check it in Settings";
+            return Net.http(r.code, r.body, "Gemini (" + model + ")").user;
+        } catch (IOException e) {
+            return Net.explain(e);
+        }
     }
 }
